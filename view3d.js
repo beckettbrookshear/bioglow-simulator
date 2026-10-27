@@ -2127,6 +2127,45 @@
     scene.add(trail);
     let trailCount = -1;
 
+    // The real robot's "ghost" (Robot tab, Real robot): a see-through box where the real robot is,
+    // worked out from its wheels and gyro, and its path as a dashed purple line.
+    const GHOST_COLOUR = '#7048e8';
+    const ghostGroup = new THREE.Group();
+    const ghostBox = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: GHOST_COLOUR, transparent: true, opacity: 0.22, depthWrite: false }));
+    const ghostEdges = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), new THREE.LineBasicMaterial({ color: GHOST_COLOUR }));
+    const ghostNose = new THREE.Mesh(new THREE.ConeGeometry(1.6, 3.2, 3), new THREE.MeshBasicMaterial({ color: GHOST_COLOUR }));
+    ghostNose.rotation.x = -Math.PI / 2;
+    ghostGroup.add(ghostBox, ghostEdges, ghostNose);
+    ghostGroup.visible = false;
+    scene.add(ghostGroup);
+    const ghostPos = new Float32Array(TRAIL_MAX * 3);
+    const ghostTrailGeo = new THREE.BufferGeometry();
+    ghostTrailGeo.setAttribute('position', new THREE.BufferAttribute(ghostPos, 3));
+    const ghostTrail = new THREE.Line(ghostTrailGeo, new THREE.LineDashedMaterial({ color: GHOST_COLOUR, dashSize: 2.4, gapSize: 1.6 }));
+    ghostTrail.frustumCulled = false;
+    ghostTrail.visible = false;
+    scene.add(ghostTrail);
+    let ghostCount = -1, ghostFirst = null;
+    function setGhost(g) {
+      ghostGroup.visible = ghostTrail.visible = !!g;
+      if (!g) return;
+      const L = ROBOT.length, W = ROBOT.width, Ht = ROBOT.height;
+      ghostBox.scale.set(W, Ht, L);
+      ghostEdges.scale.set(W, Ht, L);
+      ghostBox.position.y = ghostEdges.position.y = Ht / 2;
+      ghostNose.position.set(0, Ht + 2, -L / 2 + 1.6);
+      ghostGroup.position.set(g.x, 0.12, g.y);
+      ghostGroup.rotation.y = -rad(g.h);
+      const pts = g.trail.length > TRAIL_MAX ? g.trail.slice(-TRAIL_MAX) : g.trail;
+      if (pts.length !== ghostCount || pts[0] !== ghostFirst) {
+        ghostCount = pts.length; ghostFirst = pts[0];
+        pts.forEach(([x, y], i) => { ghostPos[i * 3] = x; ghostPos[i * 3 + 1] = 0.25; ghostPos[i * 3 + 2] = y; });
+        ghostTrailGeo.attributes.position.needsUpdate = true;
+        ghostTrailGeo.setDrawRange(0, pts.length);
+        ghostTrail.computeLineDistances();
+      }
+    }
+
     // ---- camera modes --------------------------------------------------------
     let mode = 'orbit';
     function fitDistance(margin) {
@@ -2306,7 +2345,7 @@
     function lookAt(tx, ty, tz, px, py, pz) { setMode('orbit'); controls.target.set(tx, ty, tz); camera.position.set(px, py, pz); controls.update(); }
 
     setQuality(quality);
-    return { debug: { scene, renderer, sun, camera, get models() { return models; }, get robot() { return R; } }, render, setMode, lookAt, setQuality, canPost, get quality() { return quality; }, get mode() { return mode; }, el: renderer.domElement };
+    return { debug: { scene, renderer, sun, camera, get models() { return models; }, get robot() { return R; } }, render, setGhost, setMode, lookAt, setQuality, canPost, get quality() { return quality; }, get mode() { return mode; }, el: renderer.domElement };
   }
 
   // ---- live robot inspector (Robot tab) ------------------------------------------------------

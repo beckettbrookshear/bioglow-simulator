@@ -84,7 +84,7 @@ main[data-tab=split] aside { box-shadow: inset 1px 0 var(--headerbar-shade); }
 .pane-page { flex-direction: column; gap: 4px; padding: 10px 24px 28px; }
 .pane-page > * { flex: none; width: 100%; max-width: 1100px; margin-left: auto; margin-right: auto; }
 .pane-page > .group-title { margin: 18px auto 8px; padding: 0 2px; }
-#portsNote, #faultsNote, #liveNote { margin: -2px auto 8px; padding: 0 2px; }
+#portsNote, #faultsNote, #liveNote, #rrNote { margin: -2px auto 8px; padding: 0 2px; }
 .live { display: flex; flex-wrap: wrap; gap: 4px 18px; padding: 12px; align-items: flex-start; }
 .live-view { width: 460px; max-width: 100%; aspect-ratio: 1; flex: none; border-radius: 8px; overflow: hidden; position: relative; }
 .live-view canvas { width: 100%; height: 100%; display: block; }
@@ -220,3 +220,29 @@ code { font-family: var(--mono); color: var(--accent-text); }
 #loader.done { opacity: 0; pointer-events: none; }
 #loader .loader-name { font: 700 22px/1.2 var(--title-font); letter-spacing: .02em; }
 #loader .loader-sub { font-size: 14px; color: #aaa49d; }
+
+/* Real robot (Robot tab) */
+:root { --sim-c: #e06a22; --real-c: #8f72f0; }
+@media (prefers-color-scheme: light) { :root { --sim-c: #e8590c; --real-c: #7048e8; } }
+#rrState { font-size: 14px; font-weight: 400; color: var(--dim); }
+#rrState.good, #rrBadge { color: var(--success); }
+#rrBadge { display: block; font-size: 12px; }
+#rrBox .row-end { display: inline-flex; flex: none; gap: 8px; align-items: center; }
+.rr-step { margin: 10px auto 0; padding: 10px 14px; border-radius: 10px; background: var(--card-bg); box-shadow: 0 0 0 1px var(--card-shade); font-size: 14px; }
+.rr-step.good { box-shadow: 0 0 0 2px var(--success); }
+.rr-step.bad { box-shadow: 0 0 0 2px var(--error); }
+.rr-live { margin-top: 10px; }
+.rr-live .dim, #rrStats small.dim { color: var(--dim); }
+.rr-chart { margin-top: 10px; padding: 12px; position: relative; overflow: visible; }
+.rr-chart canvas { width: 100%; display: block; touch-action: none; }
+.rr-legend { display: flex; gap: 18px; font-size: 13px; margin-bottom: 4px; }
+i.sw { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin: 0 5px 0 2px; }
+i.sw.sim { background: var(--sim-c); }
+i.sw.real { background: var(--real-c); }
+.rr-tip { position: absolute; pointer-events: none; background: var(--card-bg); color: var(--fg); box-shadow: 0 0 0 1px var(--card-shade), 0 4px 14px rgba(0,0,0,.25); border-radius: 8px; padding: 6px 10px; font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 5; }
+.rr-table { max-height: 260px; overflow: auto; }
+.rr-table table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.rr-table th, .rr-table td { padding: 2px 8px; text-align: right; white-space: nowrap; }
+.rr-chart details, .rr-log { margin-top: 8px; font-size: 13px; }
+.rr-log { margin: 10px auto 0; }
+.rr-log pre { max-height: 200px; overflow: auto; font-size: 12px; background: var(--card-bg); padding: 8px 10px; border-radius: 8px; white-space: pre-wrap; }

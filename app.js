@@ -219,21 +219,27 @@ robot.log('Done at', robot.time(), 's');
   // ---- controls ------------------------------------------------------------
   // A match is 2:30 of real time. The first Run starts it; after that the robot can be launched again
   // from home as often as there is time, like at a tournament. Reset starts a new match.
-  function runCode() {
+  function programSource() {
     const src = mode === 'blocks' ? blocks.getCode() : codeEl.value;
-    if (src === null) { print('Add an Events block such as "when program starts" and attach your blocks under it.', 0, 'err'); return; }
-    const inMatch = sim.started && !sim.over;
+    if (src === null) print('Add an Events block such as "when program starts" and attach your blocks under it.', 0, 'err');
+    return src;
+  }
+  function runCode(fresh) {
+    const src = programSource();
+    if (src === null) return;
+    const inMatch = !fresh && sim.started && !sim.over;
     if (inMatch && sim.codeRunning) { print('The robot is still running. Stop it or pick it up first.', sim.t, 'err'); return; }
     if (inMatch && !sim.inHome()) { print('The robot is outside home. Pick it up first (the referee takes a precision token), then press Run.', sim.t, 'err'); return; }
     if (inMatch) { sim.pickUp(); print('Launch from the ' + (sim.launchAreaOf() || 'launch') + ' launch area.', sim.t); }
     else { sim.reset(); consoleEl.innerHTML = ''; }
+    if (real) real.onRun(!inMatch, src);
     sim.runCode(
       src,
       () => print('Program finished. Pick the robot up and Run again while there is time, or press End to score the match.', sim.t),
       (e) => print('Error: ' + (e && e.message ? e.message : e), sim.t, 'err')
     );
   }
-  $('run').onclick = () => { if (mainEl.dataset.tab !== 'split') setTab('field'); runCode(); };
+  $('run').onclick = () => { if (mainEl.dataset.tab !== 'split') setTab('field'); runCode(false); };
   $('pickup').onclick = () => {
     if (sim.over) return;
     const outside = sim.started && !sim.inHome();
@@ -753,6 +759,7 @@ robot.log('Done at', robot.time(), 's');
     ctx.beginPath(); ctx.arc(ROBOT.sensorSide * S, -ROBOT.sensorOffset * S, 4, 0, Math.PI * 2); ctx.fill(); // color sensor
     if (ROBOT.color2) { ctx.beginPath(); ctx.arc(ROBOT.sensorSide2 * S, -ROBOT.sensorOffset * S, 4, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
+    if (real) real.draw2D(ctx, S);
   }
 
   // ---- views ---------------------------------------------------------------
@@ -1037,17 +1044,35 @@ robot.log('Done at', robot.time(), 's');
     while (acc >= DT) {
       acc -= DT;
       // let user code continue after an action completes, before the next step
-      if (sim.step(DT)) await macrotask();
+      const done = sim.step(DT);
+      if (real) real.afterStep();
+      if (done) await macrotask();
     }
     draw();
     updateUI();
     if (liveEl.offsetParent) drawLive(now);
+    if (real) real.frame(now);
     busy = false;
+  }
+
+  // ---- real robot (Robot tab) -------------------------------------------------
+  let real = null;
+  function initReal() {
+    if (!window.BioGlowReal || !window.BioGlowHub) return;
+    real = window.BioGlowReal.init({
+      sim, print,
+      source: programSource,
+      runFresh: () => runCode(true),
+      realtime: () => { speed = 1; $('speed').value = '1'; },
+      view3d: () => (view === '2d' ? null : view3d),
+    });
+    window.bioglowReal = real;
   }
 
   loadMatArt(() => {
     initViews();
     initEditors();
+    initReal();
     requestAnimationFrame(frame);
     requestAnimationFrame(() => requestAnimationFrame(() => window.hideLoader && window.hideLoader()));
   });

@@ -117,7 +117,7 @@
         <div class="overlay" id="overlay" hidden></div>
       </div>
       <div class="bar">
-        <div class="stat stat-robot"><label for="fModel">Robot</label><select id="fModel" class="model-pick" title="Which robot you are using (more on the Robot tab)"></select><small id="faultBadge" class="warn" hidden title="Some parts are switched off or weakened (Robot tab, Test failures)">&#9888; failures on</small></div>
+        <div class="stat stat-robot"><label for="fModel">Robot</label><select id="fModel" class="model-pick" title="Which robot you are using (more on the Robot tab)"></select><small id="rrBadge" class="good" hidden title="A real hub is connected (Robot tab, Real robot)">&#9679; real robot</small><small id="faultBadge" class="warn" hidden title="Some parts are switched off or weakened (Robot tab, Test failures)">&#9888; failures on</small></div>
         <div class="stat"><label>Time left</label><b id="timer">2:30</b></div>
         <div class="stat"><label>Score</label><b id="score">0</b></div>
         <div class="stat"><label>Position</label><b id="pos">-</b></div>
@@ -189,6 +189,27 @@
         <div class="live-view" id="liveView"><canvas id="live" width="460" height="460" aria-label="Live view of the robot from above"></canvas></div>
         <div class="live-stats" id="liveStats"></div>
       </div>
+      <h2 class="group-title">Real robot <small id="rrState">not connected</small></h2>
+      <p class="note" id="rrNote">Connect your SPIKE Prime hub over Bluetooth to see its live readings and a see-through purple <b>ghost</b> of it on the field, worked out from its wheels and gyro. <b>Run on both</b> runs your program in the simulator, sends the same motor commands to the real robot, then starts both robots together so you can see where they differ. Only one app can connect to the hub at a time, so close the SPIKE App's connection first.</p>
+      <div class="boxed-list" id="rrBox">
+        <div class="row"><span>Hub<small>Turn the hub on and press its Bluetooth button (it flashes), then press Connect and choose the hub.</small></span><button id="rrConnect">Connect</button></div>
+        <div class="row"><span>Run on both<small>The real robot drives exactly the motor commands the simulator's robot used (it doesn't read its own sensors), while the simulator runs your program again beside it. Uses program slot 19 on the hub.</small></span><span class="row-end"><button id="rrBoth">Run on both</button><button id="rrStop">Stop</button></span></div>
+        <div class="row"><span>Ghost on the field<small>Put it back at the launch spot when you put the real robot there.</small></span><span class="row-end"><button id="rrPlace">Put at launch spot</button><input type="checkbox" id="rrGhost" aria-label="Show the ghost"></span></div>
+        <div class="row"><span>Run a program already on the hub<small>The ghost follows the robot while it runs</small></span><span class="row-end"><select id="rrSlot"></select><button id="rrRunSlot">Run</button></span></div>
+        <div class="row"><span>Readings<small>How often the hub sends them</small></span><select id="rrRate"><option value="20">50 times a second</option><option value="50">20 times a second</option><option value="100">10 times a second</option><option value="250">4 times a second</option></select></div>
+      </div>
+      <p class="rr-step" id="rrStep" hidden></p>
+      <div class="boxed-list live rr-live">
+        <div class="live-stats" id="rrStats"></div>
+      </div>
+      <div class="boxed-list rr-chart" id="rrChartWrap" hidden>
+        <div class="rr-legend"><span><i class="sw sim"></i>Simulator</span><span><i class="sw real"></i>Real robot</span></div>
+        <canvas id="rrChart" aria-label="Wheel speeds and heading of the simulator and the real robot over time"></canvas>
+        <div class="rr-tip" id="rrTip" hidden></div>
+        <details><summary>Show as a table</summary><div class="rr-table"><table id="rrTable"></table></div></details>
+      </div>
+      <details class="rr-log"><summary>Connection log</summary><pre id="rrLog"></pre><button id="rrCopyLog">Copy log</button></details>
+
       <h2 class="group-title">Build your robot</h2>
       <div class="boxed-list" id="builder">
         <div class="row"><span>Robot<small id="bModelAbout"></small></span><select id="bModel"></select></div>
@@ -275,6 +296,21 @@ robot.holding()  robot.log(...)</pre>
       </details>
 
       <details>
+        <summary>Connecting a real robot</summary>
+        <p>On the Robot tab, <b>Real robot</b> connects to your SPIKE Prime hub over Bluetooth. It needs <b>Chrome or Edge</b> on a computer, and the hub must have
+          the SPIKE App 3 firmware (it does if it works with the current SPIKE App). Close the SPIKE App's connection first: a hub talks to one app at a time.</p>
+        <p>Once connected you see the hub's battery, gyro and every port, with a warning where they don't match the simulator robot's wiring, and a purple
+          <b>ghost</b> on the field that follows the real robot. The ghost is worked out from the drive motors and the gyro, so like the real robot it can't
+          see its own wheel slip: put it back at the launch spot whenever you put the robot there.</p>
+        <p><b>Run on both</b> runs your program in the simulator and records what every motor was told to do. Those commands go to the hub as a small program in
+          slot 19, and when you press <b>Start both</b> the real robot drives them while the simulator runs your program again beside it. Afterwards the
+          charts compare wheel speeds and turning. The real robot doesn't use its sensors during this, so a gyro turn or a line follower behaves as it
+          did in the simulator, even if that is wrong for the real robot. That makes the differences easy to spot: slipping tyres, a heavier robot,
+          weak batteries, a motor fitted the other way round.</p>
+        <p>To try it without a robot, add <code>?mockhub</code> to the end of the page's address: a pretend hub (with a slightly smaller right wheel) takes the real one's place.</p>
+      </details>
+
+      <details>
         <summary>Optional keyboard driving</summary>
         <p>When no program is running and the block area isn't focused: arrow keys / WASD to drive, Space to grab or release.</p>
       </details>
@@ -306,6 +342,9 @@ robot.holding()  robot.log(...)</pre>
   <script src="view3d.js"></script>
   <script src="blocks.js"></script>
   <script src="spike-file.js"></script>
+  <script src="realhub.js"></script>
+  <script>if (/[?&]mockhub\b/.test(location.search)) document.write('<script src="tools/mock-hub.js"><\/script>');</script>
+  <script src="realrobot.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

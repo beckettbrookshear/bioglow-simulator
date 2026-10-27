@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BIOGLOW FLL Robot Simulator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700&family=Fira+Mono:wght@400;500&family=Roboto+Slab:wght@500;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+</head>
+<body>
+  <div id="loader" role="status" aria-label="Loading">
+    <canvas id="loaderCube" width="260" height="260"></canvas>
+    <div class="loader-name">BIOGLOW Robot Simulator</div>
+    <div class="loader-sub">Loading&hellip;</div>
+  </div>
+  <script>
+  // Loading screen: a tesseract (4D cube) turning in four dimensions, projected 4D -> 3D -> 2D every frame.
+  (function () {
+    const cv = document.getElementById('loaderCube'), g = cv.getContext('2d');
+    const pr = window.devicePixelRatio || 1, size = 260;
+    cv.width = size * pr; cv.height = size * pr; cv.style.width = cv.style.height = size + 'px';
+    g.scale(pr, pr);
+    const verts = [];
+    for (let i = 0; i < 16; i++) verts.push([i & 1 ? 1 : -1, i & 2 ? 1 : -1, i & 4 ? 1 : -1, i & 8 ? 1 : -1]);
+    const edges = [];
+    for (let i = 0; i < 16; i++) for (let b = 1; b < 16; b <<= 1) if (!(i & b)) edges.push([i, i | b]);
+    const rot = (p, i, j, a) => { const c = Math.cos(a), s = Math.sin(a), x = p[i], y = p[j]; p[i] = x * c - y * s; p[j] = x * s + y * c; };
+    let raf = 0;
+    function draw(t) {
+      const a = t / 1000;
+      const pts = verts.map((v) => {
+        const p = v.slice();
+        rot(p, 0, 3, a * 0.9); // XW: the turn only a 4D cube can do - the inner cube passes through the outer one
+        rot(p, 1, 2, a * 0.5); // YZ
+        rot(p, 2, 3, a * 0.35); // ZW
+        const k4 = 2.6 / (3.2 - p[3]); // 4D -> 3D perspective
+        const x = p[0] * k4, y = p[1] * k4, z = p[2] * k4;
+        const k3 = 3.4 / (5.5 - z); // 3D -> 2D perspective
+        return { x: size / 2 + x * k3 * 80, y: size / 2 + y * k3 * 80, w: p[3], z };
+      });
+      g.clearRect(0, 0, size, size);
+      g.lineCap = 'round';
+      for (const [i, j] of edges) {
+        const d = (pts[i].w + pts[j].w) / 4 + 0.5; // 0 far in W, 1 near
+        g.strokeStyle = 'rgba(' + Math.round(72 + 115 * (1 - d)) + ',' + Math.round(185 + 25 * d) + ',' + Math.round(199 - 80 * d) + ',' + (0.35 + 0.6 * d) + ')';
+        g.lineWidth = 1.2 + 1.8 * d;
+        g.beginPath(); g.moveTo(pts[i].x, pts[i].y); g.lineTo(pts[j].x, pts[j].y); g.stroke();
+      }
+      for (const q of pts) {
+        const d = q.w / 2 + 0.5;
+        g.fillStyle = d > 0.5 ? '#bbe90b' : '#48b9c7';
+        g.beginPath(); g.arc(q.x, q.y, 2 + 2 * d, 0, Math.PI * 2); g.fill();
+      }
+      raf = requestAnimationFrame(draw);
+    }
+    raf = requestAnimationFrame(draw);
+    // app.js calls this once the simulator has drawn its first frame
+    window.hideLoader = function () {
+      const el = document.getElementById('loader');
+      if (!el || el.classList.contains('done')) return;
+      el.classList.add('done');
+      setTimeout(() => { cancelAnimationFrame(raf); el.remove(); }, 600);
+    };
+    setTimeout(window.hideLoader, 30000); // never trap the page behind the loader
+  })();
+  </script>
+  <header class="headerbar">
+    <div class="hb-start">
+      <button id="run" class="suggested pill" title="Run the program (from the start)"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>Run</span></button>
+      <span class="linked">
+        <button id="pickup" class="icon" title="Pick up the robot and put it back in the launch area. Free in home; outside home the referee takes a precision token."><svg viewBox="0 0 16 16"><path d="M5 8V3.6a1 1 0 0 1 2 0V7M7 7V2.6a1 1 0 0 1 2 0V7M9 7V3.4a1 1 0 0 1 2 0V8M11 8V5.4a1 1 0 0 1 2 0V9c0 3-2 5-4.6 5C6 14 5 12.6 4 11L2.6 8.6a1 1 0 0 1 1.7-1L5 8.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="stop" class="icon" title="Stop the program"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg></button>
+        <button id="reset" class="icon" title="New match: put everything back and reset the clock"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 2.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <button id="end" class="icon" title="End the match now and score it"><svg viewBox="0 0 16 16"><path d="M3.5 14V2.5M3.5 3h8l-2 3 2 3h-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+      </span>
+      <select id="speed" class="flat" title="Simulation speed">
+        <option value="0.5">0.5&times;</option>
+        <option value="1" selected>1&times;</option>
+        <option value="2">2&times;</option>
+        <option value="5">5&times;</option>
+        <option value="10">10&times;</option>
+      </select>
+    </div>
+    <div class="hb-title"><b>BIOGLOW Robot Simulator</b><small id="status">Loading&hellip;</small></div>
+    <div class="hb-end">
+      <button id="fullscreen" class="icon flat" title="Fullscreen"><svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    </div>
+  </header>
+
+  <nav class="switcher" id="tabs" aria-label="Views">
+    <span class="tabs">
+      <button data-tab="field" title="Watch the robot on the field"><svg viewBox="0 0 16 16"><path d="M1.5 11 8 14l6.5-3L8 8z M1.5 11V6.5L8 3.5l6.5 3V11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Field</span></button>
+      <button data-tab="code" title="Block coding, full width"><svg viewBox="0 0 16 16"><path d="M2 3.5h5l1 1h1v3H2zM4 9.5h5l1 1h4v3H4z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Code</span></button>
+      <button data-tab="split" title="Field and code side by side"><svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 2.5v11" stroke="currentColor" stroke-width="1.4"/></svg><span>Split</span></button>
+      <button data-tab="score" title="Points for each mission"><svg viewBox="0 0 16 16"><path d="M5 2.5h6v3.5a3 3 0 0 1-6 0zM5 3.5H2.5v1A2.5 2.5 0 0 0 5 7M11 3.5h2.5v1A2.5 2.5 0 0 1 11 7M8 9v3M5.5 13.5h5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"/></svg><span>Score</span></button>
+      <button data-tab="robot" title="Robot specs and ports"><svg viewBox="0 0 16 16"><rect x="3" y="4.5" width="10" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 4.5V2M1.5 7.5v3M14.5 7.5v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="6" cy="8" r="1" fill="currentColor"/><circle cx="10" cy="8" r="1" fill="currentColor"/></svg><span>Robot</span></button>
+      <button data-tab="setup" title="Docks and real-world variation"><svg viewBox="0 0 16 16"><path d="M2.5 4.5h6M12 4.5h1.5M2.5 11.5h1.5M7.5 11.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="10.2" cy="4.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="5.8" cy="11.5" r="1.7" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Setup</span></button>
+      <button data-tab="help" title="How to code the robot"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9" fill="currentColor"/></svg><span>Help</span></button>
+    </span>
+    <span class="chips"><span title="Time left">&#9201; <b id="chipTime">2:30</b></span><span title="Score"><b id="chipScore">0</b> pts</span></span>
+  </nav>
+
+  <main id="main" data-tab="split">
+    <section class="pane pane-field field" id="paneField">
+      <div class="stage" id="stage">
+        <canvas id="mat" width="945" height="458"></canvas>
+        <div class="views" id="views">
+          <button data-view="orbit">3D</button>
+          <button data-view="top">Top</button>
+          <button data-view="follow">Follow</button>
+          <button data-view="2d">2D</button>
+          <button id="quality" title="Realistic: reflections, soft contact shadows, glowing LEDs, filmic colour. Fast: for older computers.">Realistic</button>
+        </div>
+        <div class="hint" id="hint">Drag to orbit &middot; scroll to zoom &middot; right-drag to pan</div>
+        <div class="overlay" id="overlay" hidden></div>
+      </div>
+      <div class="bar">
+        <div class="stat stat-robot"><label for="fModel">Robot</label><select id="fModel" class="model-pick" title="Which robot you are using (more on the Robot tab)"></select><small id="faultBadge" class="warn" hidden title="Some parts are switched off or weakened (Robot tab, Test failures)">&#9888; failures on</small></div>
+        <div class="stat"><label>Time left</label><b id="timer">2:30</b></div>
+        <div class="stat"><label>Score</label><b id="score">0</b></div>
+        <div class="stat"><label>Position</label><b id="pos">-</b></div>
+        <div class="stat"><label>Heading</label><b id="hdg">-</b></div>
+        <div class="stat"><label>Color</label><b id="col">-</b></div>
+        <div class="stat"><label>Distance</label><b id="dst">-</b></div>
+        <div class="stat"><label>Holding</label><b id="hold">-</b></div>
+        <div class="stat"><label>Wheels</label><b id="grip">-</b></div>
+        <div class="hub" id="hubBox" title="Hub: light matrix and center button">
+          <div class="matrix" id="matrix"></div>
+          <div class="hubside">
+            <div class="hubbtns"><button id="hubleft" title="Hub Left Button">&#9664;</button><span class="centerbtn" id="centerbtn"></span><button id="hubright" title="Hub Right Button">&#9654;</button></div>
+            <small id="hubPorts">A B drive &middot; C basket &middot; D spare &middot; E color &middot; F distance</small></div>
+        </div>
+      </div>
+    </section>
+
+    <aside id="panel" class="pane pane-code">
+      <div class="controls">
+        <span class="modes" id="modes">
+          <button data-mode="blocks">Blocks</button>
+          <button data-mode="js">JavaScript</button>
+        </span>
+        <label class="file" title="Open a SPIKE App project (.llsp3), a saved block program (.json) or JavaScript">Open file
+          <input type="file" id="file" accept=".llsp3,.json,.js,.txt">
+        </label>
+        <button id="example">Load example</button>
+        <button id="save" title="Save this program to open in the simulator again">Save to file</button>
+        <span class="linked spike-actions">
+          <button id="exportSpike" class="suggested" title="Save a .llsp3 project that the LEGO Education SPIKE App opens">Save for SPIKE App</button>
+          <a id="openSpike" class="button" href="https://spike.legoeducation.com/" target="_blank" rel="noopener" title="Open the SPIKE App website in a new tab">Open SPIKE App &#8599;</a>
+        </span>
+      </div>
+      <div class="banner" id="spikeBanner" hidden></div>
+
+      <div id="blockly" class="blockly"></div>
+      <textarea id="code" spellcheck="false" placeholder="// Write your robot program here, for example:&#10;// await robot.drive(30);&#10;// await robot.turn(90);&#10;// Or press Load example." hidden></textarea>
+
+      <details id="genwrap">
+        <summary>Show the JavaScript your blocks make</summary>
+        <pre id="gencode"></pre>
+      </details>
+
+      <div id="console" aria-live="polite"></div>
+
+    </aside>
+
+    <section class="pane pane-page pane-score">
+      <h2 class="group-title">Score <b class="big" id="scoreBig">0</b></h2>
+      <ul id="breakdown"></ul>
+      <p class="note">The mission models work as shown in the official Robot Game Missions Video. Orange pads are the parts the robot pushes:
+        most stay where they are pushed (they turn teal once they are all the way in), so the Plant Root can be partly or completely extended,
+        and the Rock springs back so you can flip it and then put it back. M01: the drone stands on four rigid legs; push or hook the red cable anchor in towards the pilot
+        and the legs fold up and lift the drone (the whole rig swings round on the pilot’s turntable), then push the anchor on into the LiDAR’s handle to flip the map. M02: knock the three hanging seeds off the stalk;
+        they land on the mat, and so does the seed knocked off the M09 tree, ready to carry to the Replantation Station (M14). Hook pieces off
+        their models with the middle of the basket: the leaves in the nest (leave the katydid, its spot is random each match), the vine on the
+        M08 tree (pull it down onto the mat) and the M12 support tie (drop it over the post; it is on a chain). M13: drop the keystone onto the
+        restoration platform and the young trees rise. Push the ant in slowly, or leaf fragments fall out of its nest. Missions with the
+        No Equipment Constraint (M01, M04, M05, M07, M09, M10, M12, M15) score nothing while the robot is touching their model, so back away
+        when you are done.</p>
+    </section>
+
+    <section class="pane pane-page pane-robot">
+      <h2 class="group-title">Live robot</h2>
+      <p class="note" id="liveNote">The robot close up, front at the top, on a white floor whose grid slides underneath as it drives (drag to look around). It keeps its own colours unless a part is doing something:
+        <span class="legend"><i style="background:#1fd65f"></i>spinning</span><span class="legend"><i class="flash"></i>flashing red: slipping or a problem (Test failures)</span><br>
+        Arrows by each wheel: <span class="legend"><i style="background:#3b8bf0"></i>how fast the wheel turns</span><span class="legend"><i style="background:#5b6168"></i>how fast the ground goes by</span>(when they differ, the tyre is slipping).</p>
+      <div class="boxed-list live">
+        <div class="live-view" id="liveView"><canvas id="live" width="460" height="460" aria-label="Live view of the robot from above"></canvas></div>
+        <div class="live-stats" id="liveStats"></div>
+      </div>
+      <h2 class="group-title">Build your robot</h2>
+      <div class="boxed-list" id="builder">
+        <div class="row"><span>Robot<small id="bModelAbout"></small></span><select id="bModel"></select></div>
+        <div class="row"><span>Wheels</span><select id="bWheel"></select></div>
+        <div class="row"><span>Drive motors<small>Large motors are stronger: better for pushing and carrying</small></span><select id="bMotor"></select></div>
+        <div class="row"><span>Distance between the wheels<small>Wider turns more slowly but drives straighter</small></span><span class="row-end"><input type="number" id="bTrack" step="0.8"> cm</span></div>
+        <div class="row"><span>Body length &times; width<small>Without the attachment</small></span><span class="row-end"><input type="number" id="bLength" step="0.8"> &times; <input type="number" id="bWidth" step="0.8"> cm</span></div>
+        <div class="row"><span>Height<small>The equipment inspection allows 30.5 cm</small></span><span class="row-end"><input type="number" id="bHeight" step="1"> cm</span></div>
+        <div class="row"><span>Weight<small>Heavier robots grip better but speed up more slowly</small></span><span class="row-end"><input type="number" id="bMass" step="0.05"> kg</span></div>
+        <div class="row"><span id="bSensorName">Color sensor<small>Ahead of the wheels (negative = behind) and to the right of the middle</small></span><span class="row-end"><input type="number" id="bSensorAhead" step="0.8"> cm ahead, <input type="number" id="bSensorSide" step="0.8"> cm right</span></div>
+        <div class="row"><span>Attachment<small id="bAttachAbout"></small></span><select id="bAttach"></select></div>
+        <div class="row"><span>Standard robot<small>The SPIKE Prime driving base with the basket</small></span><button id="bDefault">Use standard robot</button></div>
+      </div>
+      <h2 class="group-title">Robot specs</h2>
+      <div class="boxed-list specs" id="specs"></div>
+      <h2 class="group-title">Ports</h2>
+      <p class="note" id="portsNote"></p>
+      <div class="boxed-list specs" id="portsList"></div>
+      <h2 class="group-title">Test failures</h2>
+      <p class="note" id="faultsNote">Switch parts off or make them work badly to see how well your program copes. Changes take effect straight away, even while a program runs, and stay until you repair them.</p>
+      <div class="boxed-list" id="faultsList"></div>
+    </section>
+
+    <section class="pane pane-page pane-setup">
+      <h2 class="group-title">Launch</h2>
+      <div class="boxed-list" id="launchSetup">
+        <div class="row"><span>Robot<small>Which robot you are using; set its size, sensors and wiring on the Robot tab</small></span><select id="sModel" class="model-pick"></select></div>
+        <div class="row"><span>Launch area<small>Where you place the robot for every launch</small></span><select id="lArea"><option value="left">Left (red)</option><option value="right">Right (blue)</option></select></div>
+        <div class="row"><span>Position<small>Robot centre, measured from the side wall of the launch area and from the bottom wall</small></span><span class="row-end"><input type="number" id="lAlong" step="0.5"> cm in, <input type="number" id="lUp" step="0.5"> cm up</span></div>
+        <div class="row"><span>Facing<small>0 = towards the back wall, 90 = right, 180 = towards you, 270 = left</small></span><span class="row-end"><input type="number" id="lHeading" step="5"> &deg;</span></div>
+        <div class="row"><span>Check<small id="lCheck"></small></span><button id="lDefault">Standard spot</button></div>
+        <div class="row"><span>Hub battery<small>A flat battery makes the motors weaker and their top speed lower</small></span><select id="battery"><option value="1">Full</option><option value="0.75">75%</option><option value="0.5">Half</option><option value="0.25">Low</option></select></div>
+      </div>
+      <h2 class="group-title">Field setup</h2>
+      <div class="boxed-list" id="docks">
+        <div class="row"><span>Mine dock</span><select data-dock="mine"></select></div>
+        <div class="row"><span>City dock</span><select data-dock="city"></select></div>
+        <div class="row"><span>Farm dock</span><select data-dock="farm"></select></div>
+        <div class="row" title="Each robot is slightly different: wheel size, motor strength, gyro drift, mat grip, where you place it, sensor noise. Same number = same robot.">
+          <span>Real-world variation<small>Wheel size, motor strength, gyro drift, grip, placement, sensor noise</small></span>
+          <label class="switch"><input type="checkbox" id="variation"><i></i></label></div>
+        <div class="row" id="spikePortsRow" hidden><span>Ports in files saved for the SPIKE App<small id="spikePortsNote">The program you opened was written for a robot wired differently</small></span>
+          <select id="spikePorts"><option value="file">Like the opened file</option><option value="sim">Like the simulator robot</option></select></div>
+        <div class="row"><span>Robot number<small>Same number gives the same imperfect robot</small></span>
+          <span class="row-end"><input type="number" id="seed" min="1" max="9999" value="1"><button id="reroll" title="Try a different random robot">New robot</button></span></div>
+      </div>
+    </section>
+
+    <section class="pane pane-page pane-help">
+      <h2 class="group-title">Help</h2>
+      <details open>
+        <summary>How to code the robot</summary>
+        <p><b>Blocks</b> work like the SPIKE App's word blocks. The hub is wired like a SPIKE Prime driving base:</p>
+        <pre>A  left drive motor     B  right drive motor   (movement motors A+B)
+C  basket motor: run ↻ 90 degrees to close it on loose models, ↺ to open
+D  spare motor (nothing attached)
+E  color sensor (looking down)      F  distance sensor (facing forward)</pre>
+        <p>As on a real hub, <b>move</b> blocks only count motor degrees: they don't use the gyro, and there is no "turn 90&deg;" block.
+          Turn with <b>move &#8635; for &hellip; degrees</b> (motor degrees: about 180 for a 90&deg; robot turn) or with the yaw angle, like the
+          <b>turn right / turn left</b> My Blocks in the example. Yaw counts up when the robot turns right and wraps at &plusmn;180.
+          Distances use <b>set 1 motor rotation to 17.5 cm</b>. Programs with event hats (when color, when I receive&hellip;) keep running until <b>stop all</b> or time runs out.</p>
+        <p><b>Real robot:</b> on the Code tab, <b>Save for SPIKE App</b> saves your blocks as a .llsp3 project that the LEGO Education SPIKE App opens,
+          and <b>Open file</b> reads a .llsp3 project made in the SPIKE App. If that program's robot is wired differently, its ports are moved to match the simulator robot's
+          (and put back when you save it for the SPIKE App again; see Setup). Pick your robot and its wiring on the Robot tab: the
+          <b>SPIKE Prime Advanced Driving Base</b> drives on A+E with color sensors on B and F, so its programs run unchanged.</p>
+        <p><b>JavaScript</b> (simulator API, with gyro-assisted drive and turns): use <code>await</code> on every action that takes time.</p>
+        <pre>await robot.drive(cm, speed=50)    // negative cm = reverse
+await robot.turn(deg, speed=40)    // + = clockwise (right)
+await robot.turnTo(heading)        // 0 = north, 90 = east
+await robot.wait(seconds)
+robot.setMotors(left, right)       // -100..100, keeps running
+robot.stop()
+await robot.grab()                 // scoop loose models in front
+await robot.release()
+robot.color()        // black white red yellow green blue azure violet magenta
+robot.reflection()   // 0-100   (color(2) / reflection(2): the second color sensor)
+robot.distance()     // cm to nearest object ahead
+robot.heading()  robot.x()  robot.y()  robot.time()
+robot.holding()  robot.log(...)</pre>
+        <p>Robot: SPIKE-style base, 0.95 kg, 56 mm wheels 11.2 cm apart, top speed about 49 cm/s (speed 100).
+          <code>drive</code> measures distance with the wheel encoders and <code>turn</code> uses the gyro, just like the real hub, so wheel slip
+          or a bump shows up as an error you have to plan for (tip: re-aim with <code>turnTo</code> after touching something).
+          The color sensor reads the real BIOGLOW mat artwork. <code>x</code>/<code>y</code> are cm from the top-left inside corner of the table; the mat starts 18.1 cm in from the left wall.</p>
+      </details>
+
+      <details>
+        <summary>Optional keyboard driving</summary>
+        <p>When no program is running and the block area isn't focused: arrow keys / WASD to drive, Space to grab or release.</p>
+      </details>
+    </section>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/environments/RoomEnvironment.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/math/SimplexNoise.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/SSAOShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+  <script src="https://unpkg.com/blockly@10.4.3/blockly.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="vendor/planck.min.js"></script>
+  <script src="mat-art.js"></script>
+  <script src="model-outlines.js"></script>
+  <script src="sim.js"></script>
+  <script src="view3d.js"></script>
+  <script src="blocks.js"></script>
+  <script src="spike-file.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

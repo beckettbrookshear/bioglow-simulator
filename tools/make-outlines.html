@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Model outlines</title>
+<style>body { font: 14px system-ui, sans-serif; margin: 16px; } textarea { width: 100%; height: 60vh; font: 12px ui-monospace, monospace; } #stage { width: 320px; height: 200px; }</style></head>
+<body>
+<!-- Makes model-outlines.js: the parts of each mission model that stick out past its footprint, measured
+     from the 3D models in view3d.js, so the robot bumps into what it can see. Open this page from the
+     simulator's folder through a local web server (python3 -m http.server, then /tools/make-outlines.html),
+     and save the text below as model-outlines.js next to sim.js whenever the models change. -->
+<h1>Model outlines</h1>
+<p id="status">Measuring the models&hellip;</p>
+<div id="stage"></div>
+<textarea id="out" spellcheck="false"></textarea>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js"></script>
+<script>window.BioGlowOutlines = {}; // measure the bare footprints, not last time's outlines</script>
+<script src="../vendor/planck.min.js"></script>
+<script src="../sim.js"></script>
+<script src="../view3d.js"></script>
+<script>
+(function () {
+  'use strict';
+  const MAX_HEIGHT = 40; // tallest robot the Robot tab allows (BUILD_LIMITS.height)
+  const BAND = 3; // parts are grouped by the height of their underside, in bands this many cm apart
+  const JOIN = 0.8; // parts closer than this (cm) share an outline
+  const MAX_VERTS = 8;
+  const r2 = (v) => Math.round(v * 20) / 20;
+
+  // ---- 2D helpers (x, z in the model's own frame) ----
+  const hull = (pts) => {
+    const p = pts.slice().sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    if (p.length < 3) return p;
+    const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+    const lo = [], up = [];
+    for (const q of p) { while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], q) <= 0) lo.pop(); lo.push(q); }
+    for (const q of p.slice().reverse()) { while (up.length >= 2 && cross(up[up.length - 2], up[up.length - 1], q) <= 0) up.pop(); up.push(q); }
+    return lo.slice(0, -1).concat(up.slice(0, -1));
+  };
+  const area = (poly) => Math.abs(poly.reduce((s, p, i) => { const q = poly[(i + 1) % poly.length]; return s + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+  // fewest vertices: drop the corner that cuts off the least, but only outwards (the outline may only grow)
+  function simplify(poly) {
+    let p = poly.slice();
+    while (p.length > MAX_VERTS) {
+      let best = -1, bestCost = Infinity, bestPt = null;
+      for (let i = 0; i < p.length; i++) {
+        const a = p[(i - 1 + p.length) % p.length], b = p[i], c = p[(i + 1) % p.length], d = p[(i + 2) % p.length];
+        // replace edge b-c by extending a-b and d-c to where they meet
+        const x1 = b[0] - a[0], y1 = b[1] - a[1], x2 = c[0] - d[0], y2 = c[1] - d[1], den = x1 * y2 - y1 * x2;
+        if (Math.abs(den) < 1e-9) continue;
+        const t = ((c[0] - b[0]) * y2 - (c[1] - b[1]) * x2) / den;
+        if (t < 0) continue;
+        const m = [b[0] + x1 * t, b[1] + y1 * t], cost = area([b, m, c]);
+        if (cost < bestCost) { bestCost = cost; best = i; bestPt = m; }
+      }
+      if (best < 0) break;
+      const last = best === p.length - 1; // b-c wraps round: c is the first point
+      p.splice(best, 2, bestPt);
+      if (last) p.shift();
+    }
+    return p;
+  }
+  const inside = (x, z, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const [xi, zi] = poly[i], [xj, zj] = poly[j]; if ((zi > z) !== (zj > z) && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) c = !c; } return c; };
+  const segD = (px, pz, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], t = Math.max(0, Math.min(1, ((px - a[0]) * dx + (pz - a[1]) * dz) / (dx * dx + dz * dz || 1))); return Math.hypot(px - a[0] - t * dx, pz - a[1] - t * dz); };
+  const dist = (x, z, poly) => (inside(x, z, poly) ? 0 : Math.min(...poly.map((p, i) => segD(x, z, p, poly[(i + 1) % poly.length]))));
+  const polysTouch = (a, b, gap) => a.some(([x, z]) => dist(x, z, b) <= gap) || b.some(([x, z]) => dist(x, z, a) <= gap);
+
+  const sim = new BioGlow.Sim();
+  const view = BioGlow3D.create(document.getElementById('stage'), sim, (c, w, h) => { c.fillStyle = '#ccc'; c.fillRect(0, 0, w, h); });
+  const out = {};
+  const v = new THREE.Vector3();
+
+  function measure(m, key) {
+    const s = sim.solids.find((x) => x.id === m.id), g = m.group;
+    g.updateMatrixWorld(true);
+    const inv = new THREE.Matrix4().copy(g.matrixWorld).invert();
+    const toLocal = ([x, z]) => { v.set(x, 0, z).applyMatrix4(inv); return [v.x, v.z]; };
+    const foot = s.shape.map(toLocal);
+    // where push pads go: the pad at rest, swept in by its travel, plus a margin, kept clear for the robot
+    const corridors = sim.plates.filter((pl) => pl.solid === s).map((pl) => {
+      const pts = pl.poly.concat(pl.poly.map(([x, z]) => [x - pl.nx * (pl.travel + 1), z - pl.ny * (pl.travel + 1)]));
+      return hull(pts.map(toLocal));
+    });
+    const parts = [];
+    g.traverse((o) => {
+      if (!o.isMesh || !o.visible || !o.geometry || !o.geometry.attributes.position) return;
+      for (let p = o; p && p !== g; p = p.parent) if (p.userData.moves) return;
+      if (o.material && (o.material.transparent || o.material.depthWrite === false)) return; // decals, glass-like shadows
+      const pos = o.geometry.attributes.position, mats = [];
+      if (o.isInstancedMesh) { const mm = new THREE.Matrix4(); for (let i = 0; i < o.count; i++) { o.getMatrixAt(i, mm); mats.push(new THREE.Matrix4().multiplyMatrices(o.matrixWorld, mm)); } }
+      else mats.push(o.matrixWorld);
+      for (const mw of mats) {
+        const step = Math.max(1, Math.floor(pos.count / 400)), pts = [];
+        let minY = Infinity, maxY = -Infinity;
+        for (let i = 0; i < pos.count; i += step) {
+          v.fromBufferAttribute(pos, i).applyMatrix4(mw);
+          minY = Math.min(minY, v.y); maxY = Math.max(maxY, v.y);
+          pts.push([v.x, v.z]);
+        }
+        if (maxY - minY < 0.05 || minY - 0.12 > MAX_HEIGHT) continue; // flat decals; far overhead
+        const local = hull(pts.map(toLocal));
+        if (local.length < 3) continue;
+        if (Math.max(...local.map(([x, z]) => dist(x, z, foot))) < 0.3) continue; // inside the footprint already
+        if (corridors.some((c) => polysTouch(local, c, 0.5))) continue; // in a push pad's way
+        parts.push({ poly: local, minY: Math.max(0, minY - 0.12) });
+      }
+    });
+    // join nearby parts at similar heights into outlines
+    const groups = [];
+    for (const p of parts) {
+      const band = Math.floor(p.minY / BAND);
+      let into = groups.filter((gr) => gr.band === band && polysTouch(gr.poly, p.poly, JOIN));
+      const pts = p.poly.concat(...into.map((gr) => gr.poly));
+      const merged = { band, poly: hull(pts), minY: Math.min(p.minY, ...into.map((gr) => gr.minY)) };
+      for (const gr of into) groups.splice(groups.indexOf(gr), 1);
+      groups.push(merged);
+    }
+    out[key] = groups.map((gr) => ({ minY: r2(gr.minY), pts: simplify(gr.poly).map(([x, z]) => [r2(x), r2(z)]) }))
+      .filter((o) => o.pts.length >= 3 && area(o.pts) > 0.05);
+    return parts.length;
+  }
+
+  const lines = [];
+  // every model where it is now, then each interchangeable model on each dock
+  view.render();
+  for (const m of view.debug.models) if (!sim.solids.find((x) => x.id === m.id).dock) lines.push(m.id + ': ' + measure(m, m.id) + ' parts out');
+  const docks = Object.keys(sim.docks), missions = Object.values(sim.docks);
+  for (const mission of missions) for (const dock of docks) {
+    sim.setDock(dock, mission);
+    view.render();
+    const s = sim.solids.find((x) => x.dock === dock), m = view.debug.models.find((x) => x.id === s.id);
+    lines.push(s.id + '@' + dock + ': ' + measure(m, s.id + '@' + dock) + ' parts out');
+  }
+  const body = JSON.stringify(out).replace(/\],"/g, '],\n  "').replace(/^\{/, '{\n  ').replace(/\}$/, '\n}');
+  document.getElementById('out').textContent =
+    '/* BIOGLOW mission model outlines, made by tools/make-outlines.html from the 3D models in view3d.js.\n' +
+    ' * The parts of each model that stick out past its footprint (sim.js MAT shapes), in the model\'s own frame\n' +
+    ' * (x along its first footprint edge, z across, cm from the footprint centre), with `minY` the height of the\n' +
+    ' * lowest point of those parts: the robot only bumps into the ones lower than it is tall. Keys are model ids,\n' +
+    ' * or id@dock for the interchangeable models. Regenerate when the models change. */\n' +
+    '(function (root) {\n  const outlines = ' + body + ';\n' +
+    "  if (typeof module !== 'undefined' && module.exports) module.exports = outlines;\n  else root.BioGlowOutlines = outlines;\n" +
+    "})(typeof globalThis !== 'undefined' ? globalThis : this);\n";
+  document.getElementById('status').textContent = 'Done. ' + lines.join(' · ');
+  document.title = 'done';
+})();
+</script>
+</body></html>

@@ -1869,7 +1869,24 @@
       return [90, 170, 80];
     }
 
-    colorAt(x, y) { return classifyRGB(...this.rgbAt(x, y)); }
+    // The sensor sees a small spot (ROBOT.sensorSpot is its radius), not one pixel: the average colour there,
+    // so tree shadows and highlights on the artwork don't flicker it, and readings fade across a line edge.
+    spotRGB(x, y) {
+      const s = ROBOT.sensorSpot, sum = [0, 0, 0];
+      let n = 0;
+      for (let ring = 0; ring <= 2; ring++) {
+        const count = ring === 0 ? 1 : ring * 8;
+        for (let k = 0; k < count; k++) {
+          const a = (k / count) * Math.PI * 2, d = (ring / 2) * s;
+          const p = this.rgbAt(x + Math.cos(a) * d, y + Math.sin(a) * d);
+          sum[0] += p[0]; sum[1] += p[1]; sum[2] += p[2];
+          n++;
+        }
+      }
+      return sum.map((c) => c / n);
+    }
+
+    colorAt(x, y) { return classifyRGB(...this.spotRGB(x, y)); }
 
     // Color sensor `n` (1, or 2 for a second one); a switched-off sensor sees nothing, a noisy one flickers.
     colorFault(n) { return this.faults[n === 2 ? 'color2' : 'color']; }
@@ -1878,27 +1895,15 @@
       if (!f.on) return 'none';
       const [x, y] = this.sensorPoint(n);
       if (!f.noise) return this.colorAt(x, y);
-      return classifyRGB(...this.rgbAt(x, y).map((c) => clamp(c + (Math.random() * 2 - 1) * f.noise * 2.55, 0, 255)));
+      return classifyRGB(...this.spotRGB(x, y).map((c) => clamp(c + (Math.random() * 2 - 1) * f.noise * 2.55, 0, 255)));
     }
 
-    // The sensor sees a small spot, so reflection fades smoothly across a line edge.
     reflection(which) {
       const fault = this.colorFault(which);
       if (!fault.on) return 0;
-      const [x, y] = this.sensorPoint(which);
-      const s = ROBOT.sensorSpot;
-      let sum = 0, n = 0;
-      for (let ring = 0; ring <= 2; ring++) {
-        const count = ring === 0 ? 1 : ring * 8;
-        for (let k = 0; k < count; k++) {
-          const a = (k / count) * Math.PI * 2, d = (ring / 2) * s;
-          const [R, G2, B] = this.rgbAt(x + Math.cos(a) * d, y + Math.sin(a) * d);
-          sum += (0.2126 * R + 0.7152 * G2 + 0.0722 * B) / 255;
-          n++;
-        }
-      }
+      const [R, G2, B] = this.spotRGB(...this.sensorPoint(which));
       const noise = (this.vary.noise ? (this.vary.noise() * 2 - 1) * VARIATION.reflectionNoise : 0) + (Math.random() * 2 - 1) * fault.noise;
-      return clamp(Math.round((sum / n) * 100 + noise), 0, 100);
+      return clamp(Math.round(((0.2126 * R + 0.7152 * G2 + 0.0722 * B) / 255) * 100 + noise), 0, 100);
     }
 
     // Ray casts across a narrow cone, like an ultrasonic beam. Ignores the robot itself.

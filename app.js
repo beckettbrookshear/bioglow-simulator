@@ -379,20 +379,31 @@ robot.log('Done at', robot.time(), 's');
   const fillSelect = (el, entries) => { el.innerHTML = ''; for (const [v, label] of entries) { const o = document.createElement('option'); o.value = v; o.textContent = label; el.appendChild(o); } };
   fillSelect($('bWheel'), Object.entries(WHEELS).map(([k, w]) => [k, w.label]));
   fillSelect($('bMotor'), Object.entries(MOTORS).map(([k, m]) => [k, m.label]));
-  fillSelect($('bAttach'), Object.entries(ATTACHMENTS).map(([k, a]) => [k, a.label]));
+  // attachments made from photos are kept in this browser
+  let photoAttachments = [];
+  try { photoAttachments = JSON.parse(store.get('bioglow-attachments') || '[]').filter((d) => window.BioGlow.registerAttachment(d)); } catch (e) { photoAttachments = []; }
+  function fillAttachments() { fillSelect($('bAttach'), Object.entries(ATTACHMENTS).map(([k, a]) => [k, a.label + (a.custom ? ' (from photos)' : '')])); }
+  fillAttachments();
   // the robot can be picked on the Robot tab, on Setup and beside the field; they all drive the Robot tab's menu
   for (const sel of document.querySelectorAll('#bModel, .model-pick')) fillSelect(sel, Object.entries(ROBOT_MODELS).map(([k, m]) => [k, m.label]));
   for (const sel of document.querySelectorAll('.model-pick')) sel.addEventListener('change', () => { $('bModel').value = sel.value; $('bModel').dispatchEvent(new Event('change')); });
   // what each job does, for the Ports list
   const jobNotes = (b) => ({
     left: 'movement motor', right: 'movement motor',
-    arm: { basket: '\u21bb 90\u00b0 closes the basket gate, \u21ba opens it', hook: '\u21bb 90\u00b0 closes the hook, \u21ba lets go', pusher: 'not used by the pusher' }[b.attachment],
-    spare: 'nothing attached',
+    arm: { basket: '\u21bb 90\u00b0 closes the basket gate, \u21ba opens it', hook: '\u21bb 90\u00b0 closes the hook, \u21ba lets go', pusher: 'not used by the pusher', lifter: '\u21bb lifts the fork (up to 75\u00b0), \u21ba lowers it' }[b.attachment] || swingNote(b, 'arm'),
+    spare: swingNote(b, 'spare') || 'nothing attached',
     color: 'looking down at the mat, ' + b.sensorAhead + ' cm ahead of the wheels',
     color2: 'looking down at the mat, beside the first one',
     distance: 'facing forward, 4\u2013200 cm, 20 readings a second',
     none: 'nothing plugged in',
   });
+  function swingNote(b, job) { // a photo attachment on this motor
+    const a = ATTACHMENTS[b.attachment], sw = ROBOT.swing;
+    if (!a || !a.custom) return '';
+    if (a.custom.mount !== job) return job === 'arm' ? 'not used (' + a.label + (a.custom.mount === 'fixed' ? ' is fixed to the front)' : ' is on the spare motor)') : '';
+    const up = (a.custom.dir || 1) > 0 ? '\u21bb' : '\u21ba';
+    return up + ' lifts ' + a.label + (sw && sw.range ? ' (it can turn ' + Math.round(sw.range[0]) + '\u00b0 to ' + Math.round(sw.range[1]) + '\u00b0 before it hits the mat or the robot)' : '');
+  }
   const jobShort = { left: 'drive', right: 'drive', arm: 'attachment', spare: 'spare', color: 'color', color2: 'color', distance: 'distance' };
   function showPorts(b) {
     const fixed = !!ROBOT_MODELS[b.model].build, notes = jobNotes(b);
@@ -434,6 +445,7 @@ robot.log('Done at', robot.time(), 's');
     const b = sim.build;
     for (const [id, key] of Object.entries(builderFields)) $(id).value = String(b[key]);
     $('bAttachAbout').textContent = ATTACHMENTS[b.attachment].about;
+    if (typeof showPhotoAttachments === 'function') showPhotoAttachments();
     $('bModelAbout').textContent = ROBOT_MODELS[b.model].about;
     for (const sel of document.querySelectorAll('.model-pick')) sel.value = b.model;
     const fixed = !!ROBOT_MODELS[b.model].build;
@@ -533,6 +545,58 @@ robot.log('Done at', robot.time(), 's');
     showBuild();
   });
   $('bDefault').onclick = () => { sim.setBuild(BUILD_DEFAULT); store.set('bioglow-build', JSON.stringify(sim.build)); showBuild(); };
+
+  // ---- attachments from photos (Robot tab) ------------------------------------------------
+  function savePhotoAttachments() {
+    const full = JSON.stringify(photoAttachments);
+    store.set('bioglow-attachments', full);
+    if (store.get('bioglow-attachments') === full) return;
+    // no room for the photos: keep the shapes (they can still be used, just not changed)
+    store.set('bioglow-attachments', JSON.stringify(photoAttachments.map((d) => ({ ...d, photos: undefined }))));
+    print('There is no room left in this browser for the photos, so only the attachments\u2019 shapes are kept.', sim.t, 'err');
+  }
+  function useAttachment(id) {
+    sim.setBuild({ ...sim.build, attachment: id });
+    store.set('bioglow-build', JSON.stringify(sim.build));
+    showBuild();
+  }
+  function showPhotoAttachments() {
+    const list = $('amSaved');
+    list.innerHTML = '';
+    for (const def of photoAttachments) {
+      const row = document.createElement('div'); row.className = 'row';
+      const name = document.createElement('span'); name.textContent = def.name;
+      const small = document.createElement('small');
+      small.textContent = (def.len ? def.len + ' cm long, ' : '') + (def.mount === 'fixed' ? 'fixed to the front' : 'on motor ' + (def.mount === 'spare' ? 'D' : 'C')) + (sim.build.attachment === def.id ? ' \u00b7 fitted now' : '');
+      name.appendChild(small);
+      const btns = document.createElement('span'); btns.className = 'row-end';
+      const btn = (text, fn, cls) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; if (cls) b.className = cls; btns.appendChild(b); };
+      if (sim.build.attachment !== def.id) btn('Fit', () => useAttachment(def.id), 'suggested');
+      btn('Change', () => maker.open(def));
+      btn('Delete', () => {
+        if (!confirm('Delete "' + def.name + '"? Its photos go too.')) return;
+        photoAttachments = photoAttachments.filter((d) => d.id !== def.id);
+        window.BioGlow.unregisterAttachment(def.id);
+        savePhotoAttachments();
+        fillAttachments();
+        if (sim.build.attachment === def.id) useAttachment(BUILD_DEFAULT.attachment); else showBuild();
+      });
+      row.append(name, btns);
+      list.appendChild(row);
+    }
+  }
+  const maker = window.BioGlowMaker ? window.BioGlowMaker.init({
+    sim,
+    onSave(def) {
+      window.BioGlow.unregisterAttachment(def.id);
+      if (!window.BioGlow.registerAttachment(def)) { print('That attachment has no solid parts, so it was not saved.', sim.t, 'err'); return; }
+      photoAttachments = photoAttachments.filter((d) => d.id !== def.id).concat([def]);
+      savePhotoAttachments();
+      fillAttachments();
+      useAttachment(def.id);
+      print('Fitted "' + def.name + '" to the robot' + (def.mount === 'fixed' ? '.' : ': turn motor ' + (def.mount === 'spare' ? 'D' : 'C') + ' in your program to move it.'), sim.t);
+    },
+  }) : null;
 
   // ---- launch position and battery (Setup tab) ---------------------------------------
   const corner = (area) => (area === 'right' ? { x: MAT.launch[1].cx, sign: -1 } : { x: MAT.launch[0].cx, sign: 1 });
@@ -686,7 +750,14 @@ robot.log('Done at', robot.time(), 's');
     // spring-loaded push pads
     for (const pl of sim.plates) {
       polyPath(pl.poly);
-      ctx.fillStyle = pl.ps.latched || pl.ps.max >= 0.9 ? '#34ffd0' : '#ff7a1a'; ctx.fill();
+      const done = pl.ps.latched || pl.ps.max >= 0.9;
+      if (pl.lift) { // a handle to lift: dashed, with an arrow up
+        ctx.fillStyle = done ? 'rgba(52,255,208,.5)' : 'rgba(255,122,26,.35)'; ctx.fill();
+        ctx.setLineDash([3, 2]); ctx.lineWidth = 1.5; ctx.strokeStyle = done ? '#34ffd0' : '#ff7a1a'; ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = '#4a2000'; ctx.fillText('\u2191', pl.cx * S, pl.cy * S + 0.5);
+        continue;
+      }
+      ctx.fillStyle = done ? '#34ffd0' : '#ff7a1a'; ctx.fill();
       ctx.lineWidth = 1; ctx.strokeStyle = '#4a2000'; ctx.stroke();
     }
 
@@ -746,7 +817,9 @@ robot.log('Done at', robot.time(), 's');
     } else if (ROBOT.attachment === 'hook') {
       ctx.fillStyle = '#2b6cb0'; ctx.fillRect(-0.6 * S, -L / 2 - R, 1.2 * S, R);
       ctx.fillStyle = sim.basketClosed ? '#ffb703' : '#2b6cb0'; ctx.fillRect(-1.6 * S, -L / 2 - R, 3.2 * S, 1.2 * S); // hook down (motor C)
-    } else {
+    } else if (sim.attBoxes) { // lift arm or photo attachment: where it is now (lighter when it is up high)
+      for (const b of sim.attBoxes) { ctx.fillStyle = b.high ? 'rgba(43,108,176,.4)' : '#2b6cb0'; ctx.fillRect((b.v - b.dv / 2) * S, -(b.u + b.du / 2) * S, b.dv * S, b.du * S); }
+    } else if (ROBOT.attachment === 'pusher') {
       ctx.fillStyle = '#2b6cb0'; ctx.fillRect(-W / 2, -L / 2 - R, W, R); // pusher
     }
     ctx.fillStyle = '#ffb703'; ctx.strokeStyle = '#7a5500'; ctx.lineWidth = 2;
@@ -919,6 +992,10 @@ robot.log('Done at', robot.time(), 's');
       seg(-R.width / 2 + 0.4, front - reach, R.width / 2 - 0.4, front - reach, !closed);
     } else if (R.attachment === 'hook') {
       seg(0, front, 0, front - reach); seg(-1, front - reach, 1, front - reach, !closed);
+    } else if (sim.attBoxes) {
+      c.fillStyle = armOk ? T.accent : T.dim;
+      for (const b of sim.attBoxes) { const [px, py] = at(b.v - b.dv / 2, -(b.u + b.du / 2)); c.globalAlpha = b.high ? 0.35 : 0.8; c.fillRect(px, py, b.dv * k, b.du * k); }
+      c.globalAlpha = 1;
     } else seg(-R.width / 2, front - reach, R.width / 2, front - reach);
     if (!armOk) cross(0, front - reach / 2, 1.2);
 
@@ -1020,7 +1097,7 @@ robot.log('Done at', robot.time(), 's');
     for (const [, n, job] of sensors) row((job === 'color2' ? 'Second color' : 'Color') + ' · ' + (portOf(job) || '-'), sim.faults[job].on ? seen[job] + ', ' + sim.reflection(n) + '% reflected' : 'switched off', sim.faults[job].on ? '' : 'bad');
     if (R.distanceSensor) { const d = sim.distance(); row('Distance · ' + portOf('distance'), sim.faults.distance.on ? (d >= R.eyeRange ? 'nothing in range' : f1(d) + ' cm') : 'switched off', sim.faults.distance.on ? '' : 'bad'); }
     head('Other motors');
-    if (portOf('arm')) row('Attachment · ' + portOf('arm'), sim.faults.arm.on ? Math.round(r.armPos) + '°, ' + (R.attachment === 'pusher' ? 'pusher' : closed ? 'closed' : 'open') : 'switched off', sim.faults.arm.on ? '' : 'bad');
+    if (portOf('arm')) row('Attachment · ' + portOf('arm'), sim.faults.arm.on ? Math.round(r.armPos) + '°' + (R.attachment === 'pusher' ? ', pusher' : R.attachment === 'basket' || R.attachment === 'hook' ? (closed ? ', closed' : ', open') : '') : 'switched off', sim.faults.arm.on ? '' : 'bad');
     if (portOf('spare')) row('Spare · ' + portOf('spare'), sim.faults.spare.on ? Math.round(r.sparePos) + '°' : 'switched off', sim.faults.spare.on ? '' : 'bad');
     row('Holding', sim.carried.length ? sim.carried.map((i) => i.type).join(', ') : 'nothing');
     row('Battery', Math.round(sim.battery * 100) + '%');
@@ -1050,7 +1127,7 @@ robot.log('Done at', robot.time(), 's');
     }
     draw();
     updateUI();
-    if (liveEl.offsetParent) drawLive(now);
+    if ($('liveView').offsetParent) drawLive(now); // (the 2D diagram is hidden once the 3D view is up)
     if (real) real.frame(now);
     busy = false;
   }

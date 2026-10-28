@@ -246,3 +246,27 @@ i.sw.real { background: var(--real-c); }
 .rr-chart details, .rr-log { margin-top: 8px; font-size: 13px; }
 .rr-log { margin: 10px auto 0; }
 .rr-log pre { max-height: 200px; overflow: auto; font-size: 12px; background: var(--card-bg); padding: 8px 10px; border-radius: 8px; white-space: pre-wrap; }
+
+/* attachment maker (Robot tab) */
+.am { margin-top: 10px; display: grid; gap: 10px; }
+.am-photos { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; }
+.am-photo { margin: 0; padding: 12px; background: var(--card-bg); border-radius: 12px; box-shadow: 0 0 0 1px var(--card-shade), 0 1px 3px var(--card-shade); display: grid; gap: 8px; align-content: start; min-width: 0; }
+.am-photo figcaption small { display: block; font-size: 13px; color: var(--dim); }
+.am-stage { position: relative; border-radius: 8px; overflow: hidden; background: var(--view-bg); min-height: 120px; display: grid; place-items: center; }
+.am-stage canvas, .am-stage video { display: block; width: 100%; height: auto; max-height: 340px; object-fit: contain; cursor: crosshair; }
+.am-empty { color: var(--dim); font-size: 13px; margin: 0; }
+.am-warn { margin: 0; font-size: 13px; color: var(--warning); }
+.am-warn:empty { display: none; }
+.am-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.am-tools label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dim); }
+.am-tools label.file { font-size: 15px; color: inherit; }
+.am input[type=range] { accent-color: var(--accent); width: 130px; }
+.am input[type=text] { font: inherit; color: inherit; background: var(--btn); border: 0; border-radius: 8px; padding: 5px 10px; min-height: 34px; width: 190px; }
+.am .boxed-list .row > span:first-child { min-width: 0; }
+.am-preview { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; padding: 12px; }
+.am-preview small { color: var(--dim); font-size: 13px; }
+.am-preview canvas { display: block; width: 100%; }
+.am-try { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; }
+.am-try span { color: var(--dim); font-size: 13px; }
+.am-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+#amSaved:empty { display: none; }

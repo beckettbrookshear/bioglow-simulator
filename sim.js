@@ -56,7 +56,22 @@
     basket: { reach: 9, mass: 0.04, label: 'Basket', about: 'Two side arms and a gate on motor C: closing the gate grabs loose models between the arms.' },
     hook: { reach: 12, mass: 0.03, label: 'Hook arm', about: 'One arm in the middle with a hook on motor C: closing it hooks the piece at the tip (leaves, the vine, the support tie, the cable anchor).' },
     pusher: { reach: 2, mass: 0.05, label: 'Flat pusher', about: 'A bumper across the whole front for pushing mission models. It cannot pick anything up.' },
+    lifter: { reach: 10, mass: 0.04, label: 'Lift arm', about: 'A two-pronged fork on motor C, resting just above the mat: drive its prongs under a handle, then turn motor C \u21bb to lift it (M09, M12, M15).' },
   };
+  // Attachments made from photos (Robot tab) are added here by registerAttachment(); see customSwing().
+  let attachmentRev = 0;
+  function registerAttachment(def) {
+    const vox = attachmentVoxels(def);
+    if (!vox.count) return null;
+    const id = def.id;
+    ATTACHMENTS[id] = {
+      rev: ++attachmentRev, // a changed attachment rebuilds the robot (see buildKey)
+      reach: 0, mass: clamp(vox.count * def.cell ** 3 * 0.00035, 0.01, 0.3), label: def.name || 'My attachment', custom: def,
+      about: (def.mount === 'fixed' ? 'Made from your photos, fixed to the front of the robot.' : 'Made from your photos, turned by motor ' + (def.mount === 'spare' ? 'D' : 'C') + '.') + ' It pushes what it hits and lifts handles it is under.',
+    };
+    return ATTACHMENTS[id];
+  }
+  function unregisterAttachment(id) { if (ATTACHMENTS[id] && ATTACHMENTS[id].custom) delete ATTACHMENTS[id]; }
   // What each hub port is plugged into. Inside the simulator each job keeps one letter (A and B the
   // left and right drive motors, C the attachment motor, D the spare motor, E the color sensor, F the
   // distance sensor, G a second color sensor). A build's `ports` say which hub port each job is wired
@@ -142,6 +157,7 @@
     }
     return used.has('left') && used.has('right') ? out : { ...WIRING_DEFAULT };
   }
+  const buildKeyOf = (b) => JSON.stringify(b) + (ATTACHMENTS[b.attachment].rev || '');
   function applyBuild(b) {
     const w = WHEELS[b.wheel], m = MOTORS[b.motor], a = ATTACHMENTS[b.attachment];
     Object.assign(WHEEL, { diameter: w.diameter, width: w.width, maxDegPerSec: m.maxDegPerSec });
@@ -154,6 +170,13 @@
     ROBOT.sensorSide2 = -b.sensorSide;
     ROBOT.color2 = Object.values(b.ports).includes('color2');
     ROBOT.distanceSensor = Object.values(b.ports).includes('distance');
+    ROBOT.swing = makeSwing(b.attachment);
+    ROBOT.attachTop = 0;
+    if (ROBOT.swing && ROBOT.swing.shape) { // how far it reaches past the bumper and how tall it stands, as it starts
+      const pts = swingPoints(ROBOT.swing, ROBOT.swing.shape, ROBOT.swing.angle(0));
+      if (a.custom) ROBOT.basket = Math.max(0, Math.max(...pts.map((p) => p[0])) - b.length / 2);
+      ROBOT.attachTop = Math.max(...pts.map((p) => p[2]));
+    }
     for (const port of HUB_PORTS) PORTS[port] = JOBS[b.ports[port]] ? JOBS[b.ports[port]].label : 'nothing';
     PHYS.robotMass = b.mass;
     PHYS.stallTorque = m.stall * 1e4;
@@ -258,6 +281,10 @@
   // 'latch' parts stay where the robot leaves them (one way, like the real models); their progress is
   // the furthest they were pushed. 'spring' parts spring back out and count full strokes.
   const latch = (key, face, travel, force, extra) => Object.assign({ key, face, travel, force, kind: 'latch' }, extra);
+  // 'lift' parts are worked by a handle the robot can't just push: an attachment has to get under it and
+  // lift it with a motor. `h` is the handle's underside above the mat, `rise` how far it has to go up
+  // (cm), `reach` how far it sticks out of the model. They stay up (ratchets and catches hold them).
+  const lift = (key, face, h, rise, extra) => Object.assign({ key, face, h, rise, reach: 1.6, kind: 'lift' }, extra);
 
   // M01 drone rig, as built from the official instructions (bags 1 and 2). Each of the four legs is a
   // black 32L Technic axle with an axle-and-pin connector on both ends, so it is rigid: 25.6 cm of axle
@@ -325,14 +352,14 @@
       { id: 'fungus', mission: 7, name: 'mycelium', shape: rect(153.9, 0.6, 161.7, 12.3), h: 11, pads: [latch('extend', S, 3, 1.5, { label: 'Mycelium completely extended' })] },
       { id: 'vine', mission: 8, name: 'tree', shape: rect(50.1, 1.4, 57.7, 14.3), h: 26 }, // the vine is hooked and pulled down
       { id: 'platform', mission: 9, name: 'research tree', shape: rect(57.7, 1.4, 65.3, 14.3), h: 17, pads: [
-        latch('raise', S, 2, 2, { at: -0.72, w: 1.8, label: 'Research platform raised' }),
+        lift('raise', S, 1.5, 1.5, { at: -0.72, w: 2.4, label: 'Research platform raised', handle: 'red ball handle' }), // book 7 step 63
         latch('camera', S, 2.5, 1.5, { at: 0, w: 1.8, label: 'Camera trap deployed' }),
         latch('seed', S, 1.5, 1, { at: 0.72, w: 1.8, label: 'Seed knocked off the tree' }),
       ] },
       { id: 'spider', mission: 10, name: 'worm habitat', shape: rect(72.9, 6.7, 76.8, 11.2), h: 9, loose: { mass: 0.04 } },
       { id: 'snail', mission: 10, name: 'spider web habitat', shape: rect(102.5, 40, 106.5, 43.5), h: 7, loose: { mass: 0.03 } },
       { id: 'window', mission: 11, name: 'root window', shape: box(140.7, 54.6, 7.8, 7.8, 45), h: 12, pads: [latch('cover', SW, 2, 1.5, { label: 'Root cover down' })] },
-      { id: 'elder', mission: 12, name: 'forest elder', shape: circ(193.85, 38.3, 3.2), h: 24, pads: [latch('cane', W, 2, 2, { label: 'Cane raised' })] },
+      { id: 'elder', mission: 12, name: 'forest elder', shape: circ(193.85, 38.3, 3.2), h: 24, pads: [lift('cane', W, 1.2, 1.5, { w: 3, label: 'Cane raised', handle: 'cane' })] },
       { id: 'post', mission: 12, name: 'post', shape: rect(192.6, 56.4, 195, 62.4), h: 6, ringable: true }, // the support tie drops over it
     ],
     // Loose models. The keystone species starts in the launch area; the others start on mission models
@@ -366,9 +393,9 @@
     14: { id: 'replant', name: 'replantation station', h: 10 },
     // The building's three features are on different sides, so each needs its own approach.
     15: { id: 'building', name: 'biocentric building', h: 14, pads: [
-      latch('canopy', null, 2, 2, { side: 'front', w: 4, label: 'Nesting canopy raised' }),
+      lift('canopy', null, 1.8, 1.5, { side: 'front', w: 4, label: 'Nesting canopy raised', handle: 'crank handle' }), // book 13 steps 20-30
       latch('skylight', null, 2, 1.5, { side: 'left', w: 4, label: 'Garden skylight completely in' }),
-      latch('hatch', null, 2, 1.5, { side: 'right', w: 4, label: 'Compost hatch opened' }),
+      lift('hatch', null, 4.4, 1.5, { side: 'right', w: 4, label: 'Compost hatch opened', handle: 'hatch handle' }), // book 13 steps 64-71
     ] },
   };
   const DEFAULT_DOCKS = { mine: 15, city: 14, farm: 13 };
@@ -377,6 +404,7 @@
   const DONE = 0.9; // a latch part counts once it is pushed this far (fraction of its travel)
   const RING_CATEGORY = 0x0002; // the M12 post: the support tie drops over it instead of bumping it
   const RIG_CATEGORY = 0x0004, ROBOT_CATEGORY = 0x0008; // the M01 drone and legs only get in the robot's way
+  const ROBOT_HIGH_CATEGORY = 0x0040; // attachment parts 3 cm or more up: they pass over loose pieces
   // Collisions by height (planck is flat): model parts 3 cm or more up let low loose pieces pass under
   // them, and parts 4 cm or more up also let the robot's attachment (the basket, hook or pusher, all
   // under 4 cm tall) reach under them; only the taller body bumps into those.
@@ -463,11 +491,147 @@
   }
 
   // The attachment's solid parts as boxes: centre (u forward of the robot centre, v to the right) and size.
+  // Attachments that swing (ROBOT.swing.shape) have boxes that follow the motor instead (Sim.attBoxes).
   function attachmentBoxes() {
     const L = ROBOT.length / 2, W2 = ROBOT.width / 2, R = ROBOT.basket;
     if (ROBOT.attachment === 'pusher') return [{ u: L + R / 2, v: 0, du: R, dv: ROBOT.width }];
     if (ROBOT.attachment === 'hook') return [{ u: L + R / 2, v: 0, du: R, dv: 1.2 }];
     return [-1, 1].map((side) => ({ u: L + R / 2, v: side * (W2 - 0.4), du: R, dv: 0.8 }));
+  }
+
+  // ---- attachments in 3D -----------------------------------------------------------
+  // An attachment is a rigid part that can swing on a motor's axle. Its points are [u, v, z] about the
+  // axle (u forward, v to the right, z up); the axle sits at `spot` on the robot (u forward of the
+  // robot's centre, z above the mat; `back` mounts face backwards). The swing angle in degrees (+ lifts
+  // the far end) comes from the motor's position. `lifters` are the points that can get under a handle
+  // and lift it (M09, M12, M15); `shape` (when there is one) is the whole part, for collisions.
+  const bits = (m, i, k) => m.bits.charCodeAt(k * m.w + i) === 49;
+  // A photo attachment as cubes `cell` cm across: where the outline from the side and the outline from
+  // above are both solid. Side grid: u across (the far end on the right), z up (row 0 at the top).
+  // Top grid: u across, v down (row 0 on the robot's left). Both grids are `w` cells long.
+  function attachmentVoxels(def, step) {
+    const side = def.side, top = def.top, n = step || 1, cell = def.cell * n;
+    const w = Math.min(side.w, top.w), out = [];
+    const [pi, pk] = def.pivot || [0, side.h / 2];
+    for (let i = 0; i < w; i += n) {
+      for (let k = 0; k < side.h; k += n) {
+        let s = false;
+        for (let a = 0; a < n && !s; a++) for (let b = 0; b < n && !s; b++) if (i + a < w && k + b < side.h && bits(side, i + a, k + b)) s = true;
+        if (!s) continue;
+        for (let j = 0; j < top.h; j += n) {
+          let t = false;
+          for (let a = 0; a < n && !t; a++) for (let b = 0; b < n && !t; b++) if (i + a < w && j + b < top.h && bits(top, i + a, j + b)) t = true;
+          if (t) out.push([i / n, j / n, k / n]);
+        }
+      }
+    }
+    const at = ([i, j, k]) => [(i * n + n / 2 - pi) * def.cell, (j * n + n / 2 - top.h / 2) * def.cell + (def.shift || 0), (pk - k * n - n / 2) * def.cell];
+    return { cells: out, count: out.length, cell, at };
+  }
+
+  // Where each attachment motor's axle is on the robot that is built.
+  function mountSpot(job) {
+    const L = ROBOT.length / 2;
+    if (ROBOT.model === 'adb') return job === 'spare' ? { u: -(L - 2.8), z: 4.4, back: true } : { u: L - 3.6, z: 4.0 };
+    return job === 'spare' ? { u: -(L - 2), z: 8.2, back: true } : { u: L - 2, z: 8.2 };
+  }
+
+  function makeSwing(attachment) {
+    const L = ROBOT.length / 2, W2 = ROBOT.width / 2, R = ROBOT.basket;
+    const a = ATTACHMENTS[attachment];
+    if (a.custom) return customSwing(a.custom);
+    // the basket's gate and the hook hang from an axle at the front, 3.6 cm up: closed (motor C at 90
+    // degrees) they hang straight down, and opening swings them up and back over the axle
+    const gateAngle = (pos) => -(90 - clamp(pos, 0, 90));
+    if (attachment === 'basket') {
+      const pts = [];
+      for (let v = -W2 + 1; v <= W2 - 1; v += 1) pts.push([0, v, -1.6]);
+      return { job: 'arm', spot: { u: L + R, z: 3.6 }, angle: gateAngle, lifters: pts };
+    }
+    if (attachment === 'hook') return { job: 'arm', spot: { u: L + R, z: 3.6 }, angle: gateAngle, lifters: [[0.5, -0.6, -2.6], [0.5, 0, -2.6], [0.5, 0.6, -2.6]] };
+    if (attachment === 'lifter') {
+      // two prongs from an axle 6.4 cm up near the front of the body, their flat ends 0.6 cm above the mat
+      const len = R + 1.5, drop = Math.asin((6.4 - 0.6) / len), pts = [];
+      for (let d = 0; d <= len + 1e-6; d += 0.8) for (const v of [-2.8, -2.0, 2.0, 2.8]) pts.push([d * Math.cos(drop), v, -d * Math.sin(drop)]);
+      const tips = pts.filter(([u]) => u >= (len - 3.5) * Math.cos(drop));
+      return { job: 'arm', spot: { u: L - 1.5, z: 6.4 }, angle: (pos) => pos, range: [-2, 75], lifters: tips, shape: pts };
+    }
+    return null; // the pusher doesn't move
+  }
+
+  // A photo attachment: on a motor, its axle (def.pivot) goes on that motor's axle; fixed ones are
+  // bolted to the front with their back edge against the bumper and their lowest point just above the mat.
+  function customSwing(def) {
+    const vox = attachmentVoxels(def, 2);
+    const pts = vox.cells.map(vox.at);
+    // only the outside matters for collisions and lifting
+    const filled = new Set(vox.cells.map(([i, j, k]) => i + ',' + j + ',' + k));
+    const surface = vox.cells.filter(([i, j, k]) => [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]].some(([a, b, c]) => !filled.has((i + a) + ',' + (j + b) + ',' + (k + c)))).map(vox.at);
+    const fixed = def.mount === 'fixed';
+    let spot;
+    if (fixed) {
+      const minU = Math.min(...pts.map((p) => p[0])), minZ = Math.min(...pts.map((p) => p[2]));
+      spot = { u: ROBOT.length / 2 - 0.3 - minU, z: (def.lift !== undefined ? def.lift : 0.4) - minZ };
+    } else spot = mountSpot(def.mount);
+    const k = (def.dir || 1) * (def.ratio || 1);
+    const sw = { job: fixed ? null : def.mount, spot, lifters: surface, shape: surface, custom: true, start: 0, angle: (pos) => sw.start + k * pos };
+    if (fixed) { sw.angle = () => 0; return sw; }
+    // as fitted on the robot: turned from the photo by `start` degrees, or (by default) the least turn
+    // that keeps it off the mat
+    const low = (deg) => Math.min(...swingPoints(sw, surface, deg).map((p) => p[2]));
+    if (def.start !== undefined) sw.start = def.start;
+    else {
+      for (let d = 0; d <= 180; d += 2) {
+        if (low(d) >= 0.3) { sw.start = d; break; }
+        if (low(-d) >= 0.3) { sw.start = -d; break; }
+      }
+    }
+    // the motor can turn it until it hits the mat or the robot (parts already over the robot as it
+    // starts, and those near the axle, don't count)
+    const L = ROBOT.length / 2, W2 = ROBOT.width / 2;
+    const inBody = ([u, v, z]) => Math.abs(u) < L && Math.abs(v) < W2 && z > 0 && z < ROBOT.height + 0.3;
+    const far = surface.filter(([u, , z]) => Math.hypot(u, z) > 3);
+    const startIn = swingPoints(sw, far, sw.start).map(inBody);
+    const free = (deg) => low(deg) >= 0 && !swingPoints(sw, far, deg).some((p, i) => !startIn[i] && inBody(p));
+    let lo = 0, hi = 0;
+    while (lo > -270 && free(sw.start + lo - 2)) lo -= 2;
+    while (hi < 270 && free(sw.start + hi + 2)) hi += 2;
+    sw.range = [lo / k, hi / k].sort((a, b) => a - b);
+    if (Math.abs(k) < 1e-6) sw.range = null;
+    return sw;
+  }
+
+  // An attachment's points turned to `deg` and put on the robot: [u, v, z] in robot coordinates.
+  function swingPoints(sw, pts, deg) {
+    const c = Math.cos(rad(deg)), s = Math.sin(rad(deg)), m = sw.spot.back ? -1 : 1;
+    return pts.map(([u, v, z]) => [sw.spot.u + m * (u * c - z * s), m * v, sw.spot.z + u * s + z * c]);
+  }
+
+  // Collision boxes for an attachment's points in robot coordinates: slices 1 cm long, split where
+  // there is a gap across, low (under 3 cm, they hit loose pieces too) and high. The chassis covers
+  // what is inside the body.
+  function footprintOf(pts) {
+    const L = ROBOT.length / 2, W2 = ROBOT.width / 2, bins = new Map();
+    for (const [u, v, z] of pts) {
+      if (z > MAX_HEIGHT || z < -0.5) continue;
+      if (Math.abs(u) < L - 0.3 && Math.abs(v) < W2 - 0.3) continue;
+      const key = Math.floor(u) + ':' + (z < OVERHANG_HEIGHT ? 0 : 1);
+      if (!bins.has(key)) bins.set(key, []);
+      bins.get(key).push(v);
+    }
+    const boxes = [];
+    for (const [key, vs] of bins) {
+      const [u0, band] = key.split(':').map(Number);
+      vs.sort((a, b) => a - b);
+      let start = vs[0];
+      for (let i = 1; i <= vs.length; i++) {
+        if (i < vs.length && vs[i] - vs[i - 1] < 1.3) continue;
+        const end = vs[i - 1];
+        boxes.push({ u: u0 + 0.5, v: (start + end) / 2, du: 1, dv: end - start + 0.8, high: band === 1 });
+        if (i < vs.length) start = vs[i];
+      }
+    }
+    return boxes.slice(0, 160);
   }
 
   function robotPoly(p, grow) {
@@ -610,7 +774,7 @@
     setBuild(b) {
       this.build = normalizeBuild(b);
       applyBuild(this.build);
-      this.buildKey = JSON.stringify(this.build);
+      this.buildKey = buildKeyOf(this.build);
       this.reset();
     }
 
@@ -634,7 +798,7 @@
       this.stopCode();
       this.gyroStuck = null;
       this.tokens = 6;
-      this.buildKey = JSON.stringify(this.build);
+      this.buildKey = buildKeyOf(this.build);
       this.t = 0;
       this.started = false;
       this.over = false;
@@ -741,10 +905,12 @@
       body.setSleepingAllowed(false);
       const L = ROBOT.length, Wd = ROBOT.width;
       body.createFixture(planck.Box(L / 2, Wd / 2), { ...fix, density: (PHYS.robotMass * 0.94) / (L * Wd), filterCategoryBits: ROBOT_CATEGORY });
-      for (const part of attachmentBoxes()) { // in robot coordinates: u forward, v to the right
+      this.body = body;
+      this.attFix = []; this.attBoxes = null; this.attAngle = null;
+      if (ROBOT.swing && ROBOT.swing.shape) this.updateAttachment(true); // its collision boxes follow its motor
+      else for (const part of attachmentBoxes()) { // in robot coordinates: u forward, v to the right
         body.createFixture(planck.Box(part.du / 2, part.dv / 2, Vec2(part.u, part.v), 0), { ...fix, density: (PHYS.robotMass * 0.03) / (part.du * part.dv), filterCategoryBits: ROBOT_CATEGORY, filterMaskBits: 0xffff & ~HIGH_CATEGORY });
       }
-      this.body = body;
 
       // loose mission models; the ones still on a model wait there (inactive) until they come loose
       const slots = {};
@@ -759,7 +925,7 @@
         const b = world.createBody({ type: 'dynamic', position: Vec2(x, y), linearDamping: 0.5, angularDamping: 2 });
         const shape = i.size ? planck.Box(i.size[0] / 2, i.size[1] / 2) : planck.Circle(i.r);
         const area = i.size ? i.size[0] * i.size[1] : Math.PI * i.r * i.r;
-        b.createFixture(shape, { ...fix, density: i.mass / area, filterMaskBits: 0xffff & ~OVERHANG_CATEGORY & ~HIGH_CATEGORY & ~(i.type === 'tie' ? RING_CATEGORY : 0) });
+        b.createFixture(shape, { ...fix, density: i.mass / area, filterMaskBits: 0xffff & ~OVERHANG_CATEGORY & ~HIGH_CATEGORY & ~ROBOT_HIGH_CATEGORY & ~(i.type === 'tie' ? RING_CATEGORY : 0) });
         slideOnMat(b, i.mass, i.r);
         if (i.on) b.setActive(false);
         if (i.tether) { // a cable or chain back to its model: it can't be dragged further away than this
@@ -768,6 +934,14 @@
         }
         return { ...i, x, y, z, a: 0, carried: false, attached: !!i.on, home: i.on ? { x, y, z } : null, body: b, weld: null };
       });
+      // the keystone species is placed by the team: where this robot's attachment would be on it, it goes just in front
+      const fx = Math.sin(rad(r.h)), fy = -Math.cos(rad(r.h)), parts = this.robotParts(0.3);
+      for (const it of this.items) {
+        if (it.type !== 'keystone') continue;
+        let n = 0;
+        while (n < 80 && parts.some((pp) => polyDistance(it.x, it.y, pp) < it.r)) { it.x += fx * 0.5; it.y += fy * 0.5; n++; }
+        if (n) it.body.setPosition(Vec2(it.x, it.y));
+      }
       this.buildRig();
       this.katydidLeft = false; // katydid completely out of the leaf habitat at some point (M04 bonus lost)
       this.droneWasUp = false;
@@ -910,6 +1084,7 @@
     }
 
     addPlate(s, st, pd) {
+      if (pd.kind === 'lift') return this.addHandle(s, st, pd);
       const spot = plateSpot(s.shape, pd.face, pd.at);
       const thick = 1, w = pd.w || Math.min(spot.len * 0.8, 8);
       const cx = spot.mx + spot.nx * (pd.travel + thick / 2), cy = spot.my + spot.ny * (pd.travel + thick / 2);
@@ -928,6 +1103,21 @@
       this.plates.push({ id: s.id, key: pd.key, pad: pd, solid: s, body, joint, st, ps, travel: pd.travel, steps: pd.steps || 1, spring, w, thick, h: Math.min(s.h, 6), t: 0, speed: 0, poly: null, nx: spot.nx, ny: spot.ny });
     }
 
+    // A handle to lift (see `lift`): no body of its own (the model's base is what the robot bumps into),
+    // just the space in front of the model where it sticks out.
+    addHandle(s, st, pd) {
+      const spot = plateSpot(s.shape, pd.face, pd.at), w = pd.w || Math.min(spot.len * 0.8, 8);
+      const tx = -spot.ny, ty = spot.nx;
+      const at = (d, t) => [spot.mx + spot.nx * d + tx * t, spot.my + spot.ny * d + ty * t];
+      const ps = { max: 0, strokes: 0, latched: false };
+      st.pads[pd.key] = ps;
+      this.plates.push({
+        id: s.id, key: pd.key, pad: pd, solid: s, lift: true, st, ps, w, thick: pd.reach, h: pd.h, rise: pd.rise, lifted: 0, under: new Set(), hinted: false,
+        poly: [at(-0.3, -w / 2), at(pd.reach, -w / 2), at(pd.reach, w / 2), at(-0.3, w / 2)],
+        cx: spot.mx + spot.nx * pd.reach / 2, cy: spot.my + spot.ny * pd.reach / 2, ang: Math.atan2(spot.ny, spot.nx), nx: spot.nx, ny: spot.ny, t: 0, speed: 0, travel: pd.rise,
+      });
+    }
+
     syncFromWorld() {
       const r = this.robot, p = this.body.getPosition();
       r.x = p.x; r.y = p.y; r.h = deg(this.body.getAngle()) + 90;
@@ -942,6 +1132,7 @@
         s.pose = { dx: q.x - s.rest.x, dy: q.y - s.rest.y, da: deg(s.body.getAngle()) };
       }
       for (const pl of this.plates) {
+        if (pl.lift) continue;
         const q = pl.body.getPosition(), a = pl.body.getAngle();
         const c = Math.cos(a), sn = Math.sin(a);
         pl.t = pl.joint.getJointTranslation();
@@ -1070,7 +1261,12 @@
         r[k + 'Vel'] += clamp(target - r[k + 'Vel'], -ARM.accel * h, ARM.accel * h);
         r[k + 'Pos'] += r[k + 'Vel'] * h;
       }
-      if (r.armPos > ARM.max || r.armPos < ARM.min) { r.armPos = clamp(r.armPos, ARM.min, ARM.max); r.armVel = 0; }
+      // hard stops: the basket and hook at both ends of their swing, other attachments where they hit the mat
+      const sw = ROBOT.swing;
+      const [lo, hi] = sw && sw.range && sw.job === 'arm' ? sw.range : [ARM.min, ARM.max];
+      if (r.armPos > hi || r.armPos < lo) { r.armPos = clamp(r.armPos, lo, hi); r.armVel = 0; }
+      if (sw && sw.range && sw.job === 'spare' && (r.sparePos > sw.range[1] || r.sparePos < sw.range[0])) { r.sparePos = clamp(r.sparePos, ...sw.range); r.spareVel = 0; }
+      if (!['basket', 'hook', 'pusher'].includes(ROBOT.attachment)) return; // only these open and close
       const closed = r.armPos >= ARM.closeAt;
       if (closed && !this.basketClosed) this.doGrab();
       if (!closed && this.basketClosed) this.doRelease();
@@ -1146,6 +1342,7 @@
         if (this.started) this.robot.faultDrift = (this.robot.faultDrift || 0) + this.faults.gyro.drift * h;
         this.driveWheels(h);
         this.updateAuxMotors(h);
+        this.updateAttachment();
         this.updateRig();
         this.world.step(h, 10, 4);
         this.syncFromWorld();
@@ -1261,6 +1458,7 @@
     updateMissions() {
       const tag = (s2) => ' (M' + String(s2.mission).padStart(2, '0') + ')';
       for (const pl of this.plates) {
+        if (pl.lift) { this.updateHandle(pl, tag); continue; }
         const ps = pl.ps, f = clamp(pl.t / pl.travel, 0, 1);
         if (pl.spring) {
           if (!ps.latched && f >= 0.85) {
@@ -1336,11 +1534,76 @@
       }
     }
 
+    // Position (degrees) of the motor that turns the attachment.
+    swingPos() {
+      const sw = ROBOT.swing;
+      return !sw || !sw.job ? 0 : sw.job === 'spare' ? this.robot.sparePos : this.robot.armPos;
+    }
+
+    // The attachment's lifting points on the field now: [x, y, height] (cached for one physics step).
+    liftPoints() {
+      if (this.liftCache && this.liftCache.t === this.t) return this.liftCache.pts;
+      const sw = ROBOT.swing, r = this.robot;
+      let pts = [];
+      if (sw && sw.lifters) {
+        const fx = Math.sin(rad(r.h)), fy = -Math.cos(rad(r.h)), rx = Math.cos(rad(r.h)), ry = Math.sin(rad(r.h));
+        pts = swingPoints(sw, sw.lifters, sw.angle(this.swingPos())).map(([u, v, z]) => [r.x + fx * u + rx * v, r.y + fy * u + ry * v, z]);
+      }
+      this.liftCache = { t: this.t, pts };
+      return pts;
+    }
+
+    // A handle goes up with the attachment points that were under it and rise; pushing it does nothing.
+    updateHandle(pl, tag) {
+      const ps = pl.ps, r = this.robot;
+      if (pl.lifted >= pl.rise || Math.hypot(r.x - pl.cx, r.y - pl.cy) > ROBOT.length + ROBOT.basket + 12) { pl.under.clear(); return; }
+      const pts = this.liftPoints();
+      let top = -Infinity;
+      for (const i of pl.under) if (pts[i] && pointInPoly(pts[i][0], pts[i][1], pl.poly)) top = Math.max(top, pts[i][2]);
+      const before = ps.max;
+      if (top > pl.h + pl.lifted) {
+        pl.lifted = Math.min(pl.rise, top - pl.h);
+        ps.max = pl.lifted / pl.rise;
+        pl.t = pl.lifted;
+      }
+      const underside = pl.h + pl.lifted;
+      pl.under = new Set();
+      pts.forEach(([x, y, z], i) => { if (z <= underside + 0.3 && z > -0.5 && pointInPoly(x, y, pl.poly)) pl.under.add(i); });
+      if (before < DONE && ps.max >= DONE) {
+        this.log(pl.pad.label + tag(pl.solid));
+        this.onLatched(pl);
+      } else if (before === 0 && ps.max > 0) this.log('Lifting the ' + pl.pad.handle + ' of the ' + pl.solid.name + tag(pl.solid));
+      // a push on a handle does nothing: once the robot has pushed on it for a while with nothing under it, say why
+      if (!pl.hinted && ps.max === 0 && (this.hintTick = (this.hintTick || 0) + 1) % 10 === 0) {
+        pl.pushT = !pl.under.size && this.robotParts(0).some((pp) => polysTouch(pp, pl.poly, 0)) ? (pl.pushT || 0) + 10 / 200 : 0;
+      }
+      if (!pl.hinted && pl.pushT > 0.75) {
+        pl.hinted = true;
+        this.log('The ' + pl.pad.handle + ' of the ' + pl.solid.name + ' has to be lifted, not pushed: get an attachment under it (' + pl.h + ' cm up) and lift it with a motor' + tag(pl.solid));
+      }
+    }
+
+    // Rebuilds a swinging attachment's collision boxes when its motor has turned it a little.
+    updateAttachment(force) {
+      const sw = ROBOT.swing;
+      if (!sw || !sw.shape) return;
+      const ang = sw.angle(this.swingPos());
+      if (!force && Math.abs(ang - this.attAngle) < 2) return;
+      this.attAngle = ang;
+      for (const f of this.attFix) this.body.destroyFixture(f);
+      this.attBoxes = footprintOf(swingPoints(sw, sw.shape, ang));
+      // weightless (the chassis carries the robot's mass, so it doesn't change as the boxes do)
+      this.attFix = this.attBoxes.map((b) => this.body.createFixture(planck.Box(b.du / 2, b.dv / 2, Vec2(b.u, b.v), 0), {
+        friction: PHYS.bodyFriction, restitution: PHYS.restitution, density: 0,
+        filterCategoryBits: b.high ? ROBOT_HIGH_CATEGORY : ROBOT_CATEGORY, filterMaskBits: b.high ? 0xffff : 0xffff & ~HIGH_CATEGORY,
+      }));
+    }
+
     // The robot's chassis and its attachment's solid parts (a basket is open between its arms), grown by `grow` cm.
     robotParts(grow, pose) {
       const r = pose || this.robot, fx = Math.sin(rad(r.h)), fy = -Math.cos(rad(r.h)), rx = Math.cos(rad(r.h)), ry = Math.sin(rad(r.h));
       const g = grow || 0;
-      const boxes = attachmentBoxes().map((b) => [[b.u - b.du / 2, b.v - b.dv / 2 - g], [b.u + b.du / 2 + g, b.v - b.dv / 2 - g], [b.u + b.du / 2 + g, b.v + b.dv / 2 + g], [b.u - b.du / 2, b.v + b.dv / 2 + g]]
+      const boxes = (this.attBoxes || attachmentBoxes()).map((b) => [[b.u - b.du / 2, b.v - b.dv / 2 - g], [b.u + b.du / 2 + g, b.v - b.dv / 2 - g], [b.u + b.du / 2 + g, b.v + b.dv / 2 + g], [b.u - b.du / 2, b.v + b.dv / 2 + g]]
         .map(([u, v]) => [r.x + fx * u + rx * v, r.y + fy * u + ry * v]));
       return [robotPoly(r, g)].concat(boxes);
     }
@@ -1360,7 +1623,7 @@
 
     // Equipment inspection: the robot fits completely in a launch area and under the height limit.
     inspection() {
-      if (ROBOT.height > MAX_HEIGHT) return { ok: false, why: 'taller than ' + MAX_HEIGHT + ' cm' };
+      if (Math.max(ROBOT.height, ROBOT.attachTop || 0) > MAX_HEIGHT) return { ok: false, why: 'taller than ' + MAX_HEIGHT + ' cm' };
       if (!this.launchAreaOf(this.launch)) return { ok: false, why: 'does not fit completely inside a launch area' };
       return { ok: true };
     }
@@ -2064,6 +2327,7 @@
     FIELD, ROBOT, PHYS, VARIATION, MAT, DRONE, DOCK_MODELS, ROBOT_MODELS, JOBS, HUB_PORTS, WIRING_DEFAULT, FAULTS_DEFAULT, FAULT_LIMITS, DT, MATCH_TIME, START, PORTS, ARM, HUB_IMAGES, SOUNDS, Sim,
     WHEELS, MOTORS, ATTACHMENTS, BUILD_DEFAULT, BUILD_LIMITS, normalizeBuild, ACCEL_SETTINGS, TOKEN_POINTS, MAX_HEIGHT,
     robotPoly, grabAction, releaseAction, classifyRGB,
+    registerAttachment, unregisterAttachment, attachmentVoxels, swingPoints, mountSpot, swingOf: customSwing,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BioGlow = api;

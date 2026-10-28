@@ -223,6 +223,49 @@
         <div class="row"><span>Attachment<small id="bAttachAbout"></small></span><select id="bAttach"></select></div>
         <div class="row"><span>Standard robot<small>The SPIKE Prime driving base with the basket</small></span><button id="bDefault">Use standard robot</button></div>
       </div>
+      <h2 class="group-title">Attachments from photos</h2>
+      <p class="note">Built an attachment? Photograph it on plain, light paper, once from the side and once from above, with the end that sticks out away from the robot on the right. The simulator cuts it out, builds a 3D model from the two outlines and fits it to an attachment motor, so your program drives it like the real one. It pushes what it bumps into and can lift handles (M09, M12, M15).</p>
+      <div class="boxed-list" id="amSaved"></div>
+      <div class="am" id="amMaker" hidden>
+        <div class="am-photos">
+        <figure class="am-photo" data-view="side">
+          <figcaption><b>1. From the side</b><small>Far end on the right, robot end on the left. Tap where the axle goes.</small></figcaption>
+          <div class="am-stage"><canvas hidden></canvas><video playsinline muted hidden></video><p class="am-empty">No photo yet</p></div>
+          <p class="am-warn"></p>
+          <div class="am-tools">
+            <button data-act="camera">Camera</button><label class="file">Choose photo<input type="file" accept="image/*"></label><button data-act="snap" class="suggested" hidden>Take photo</button>
+            <button data-act="flip" title="Mirror it, so the far end is on the right">Flip</button><button data-act="rotate" title="Turn it a quarter turn">Rotate</button>
+          </div>
+          <div class="am-tools"><label>Cut-out<input type="range" min="10" max="170" value="60" data-act="thr"></label><button data-act="bg" title="Then tap a bit of background that is still bright">Tap background</button></div>
+        </figure>
+        <figure class="am-photo" data-view="top">
+          <figcaption><b>2. From above</b><small>Far end on the right, as if the robot were driving to the right</small></figcaption>
+          <div class="am-stage"><canvas hidden></canvas><video playsinline muted hidden></video><p class="am-empty">No photo yet</p></div>
+          <p class="am-warn"></p>
+          <div class="am-tools">
+            <button data-act="camera">Camera</button><label class="file">Choose photo<input type="file" accept="image/*"></label><button data-act="snap" class="suggested" hidden>Take photo</button>
+            <button data-act="flip" title="Mirror it, so the far end is on the right">Flip</button><button data-act="rotate" title="Turn it a quarter turn">Rotate</button>
+          </div>
+          <div class="am-tools"><label>Cut-out<input type="range" min="10" max="170" value="60" data-act="thr"></label><button data-act="bg" title="Then tap a bit of background that is still bright">Tap background</button></div>
+        </figure>
+        </div>
+        <div class="boxed-list">
+          <div class="row"><span>Length<small>From the end at the robot to the far end <span id="amHoles"></span></small></span><span class="row-end"><input type="number" id="amLen" min="2" max="40" step="0.4" placeholder="cm"> cm</span></div>
+          <div class="row"><span>Fitted<small id="amMountWhy"></small></span><select id="amMount"><option value="arm">Swings on motor C</option><option value="spare">Swings on motor D</option><option value="fixed">Fixed to the front</option></select></div>
+          <div class="row"><span>Axle<small id="amAxle"></small></span></div>
+          <div class="row"><span>Which way lifts it<small>Try it on the real robot: run the motor a little and watch</small></span><select id="amDir"><option value="1">Motor &#x21bb; (clockwise) lifts it</option><option value="-1">Motor &#x21ba; (anticlockwise) lifts it</option></select></div>
+          <div class="row"><span>How it sits at the start<small>Turned from the photo by this much; Auto keeps it just off the mat</small></span><span class="row-end"><input type="range" id="amStart" min="-90" max="90" value="0"> <label><input type="checkbox" id="amAuto" checked> Auto</label></span></div>
+          <div class="row"><span>Name</span><input type="text" id="amName" maxlength="30" placeholder="My attachment"></div>
+        </div>
+        <div class="boxed-list am-preview">
+          <div><small>From the side</small><canvas id="amSideView"></canvas></div>
+          <div><small>From above</small><canvas id="amTopView"></canvas></div>
+          <label class="am-try">Try the motor <input type="range" id="amTry" min="-180" max="180" value="0"> <span id="amTryNote"></span></label>
+        </div>
+        <p class="rr-step" id="amMsg" hidden></p>
+        <div class="am-actions"><button id="amCancel">Cancel</button><button id="amSave" class="suggested" disabled>Save and fit to the robot</button></div>
+      </div>
+      <div class="am-actions"><button id="amNew">Make an attachment from photos</button></div>
       <h2 class="group-title">Robot specs</h2>
       <div class="boxed-list specs" id="specs"></div>
       <h2 class="group-title">Ports</h2>
@@ -296,6 +339,27 @@ robot.holding()  robot.log(...)</pre>
       </details>
 
       <details>
+        <summary>Lifting mission parts</summary>
+        <p>Some mission models are worked by a handle that has to be lifted, like on the real table: the research platform's red ball handle (M09), the
+          forest elder's cane (M12), and the biocentric building's crank and hatch handles (M15). Pushing them does nothing. Get an attachment
+          <b>under</b> the handle (the 2D view marks each one with a dashed orange box and an arrow), then lift it by turning the attachment's motor.
+          The <b>Lift arm</b> attachment on the Robot tab is made for this: its fork rests just above the mat, and turning motor C clockwise lifts it.
+          A handle stays up once it is lifted far enough.</p>
+      </details>
+
+      <details>
+        <summary>Attachments from photos</summary>
+        <p>On the Robot tab, <b>Make an attachment from photos</b> turns an attachment you have built into one the simulator can use. Put it on plain,
+          light paper and take two photos, one from the side and one from straight above, with the end that sticks out away from the robot on the
+          right (<b>Flip</b> and <b>Rotate</b> fix it if not). Keep some paper showing all round it. Move the <b>Cut-out</b> slider until only the attachment
+          is bright, and use <b>Tap background</b> for shadows that stay bright.</p>
+        <p>Type in how long it is (count the holes: each is 0.8 cm). The simulator fits it to the attachment motor, with the axle in the hole nearest the
+          robot if it can see one; tap the side photo to move the axle, or choose <b>Fixed to the front</b>. <b>Try the motor</b> shows how it swings.
+          After saving, your program moves it by turning that motor (for example motor C), just as on the real robot. It bumps into things and can lift
+          handles. The 3D shape is built from the two outlines, so curves and holes that only show from the front are filled in.</p>
+      </details>
+
+      <details>
         <summary>Connecting a real robot</summary>
         <p>On the Robot tab, <b>Real robot</b> connects to your SPIKE Prime hub over Bluetooth. It needs <b>Chrome or Edge</b> on a computer, and the hub must have
           the SPIKE App 3 firmware (it does if it works with the current SPIKE App). Close the SPIKE App's connection first: a hub talks to one app at a time.</p>
@@ -340,6 +404,7 @@ robot.holding()  robot.log(...)</pre>
   <script src="model-outlines.js"></script>
   <script src="sim.js"></script>
   <script src="view3d.js"></script>
+  <script src="attachment-maker.js"></script>
   <script src="blocks.js"></script>
   <script src="spike-file.js"></script>
   <script src="realhub.js"></script>

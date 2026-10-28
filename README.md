@@ -6,6 +6,10 @@ A browser simulator for practising FIRST LEGO League robot runs on the BIOGLOW f
 
 You can also download this repo and open `index.html` in a browser. No server or install is needed.
 
+## Lifting mission parts and photo attachments
+
+Handles on M09 (research platform), M12 (cane) and M15 (crank and hatch) have to be lifted by an attachment that gets under them and is turned by a motor; pushing them does nothing. The **Lift arm** attachment does this. On the Robot tab, **Make an attachment from photos** turns two photos of your own attachment (from the side and from above) into a 3D model fitted to an attachment motor, so programs drive it by turning that motor. It's built from the two outlines and kept in your browser.
+
 ## Real robot
 
 On the Robot tab, **Real robot** connects to a SPIKE Prime hub over Bluetooth (Chrome or Edge, SPIKE App 3 firmware). It shows the hub's live readings, draws a "ghost" of the real robot on the field, and **Run on both** runs a program on the simulator and the real robot side by side, with charts comparing them. It uses LEGO's published [SPIKE Prime hub protocol](https://lego.github.io/spike-prime-docs/). To try it without a robot, open the simulator with `?mockhub` at the end of the address.

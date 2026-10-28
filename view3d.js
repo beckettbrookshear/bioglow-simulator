@@ -8,7 +8,7 @@
 (function () {
   'use strict';
   if (!window.THREE || !THREE.OrbitControls) return;
-  const { FIELD, ROBOT, MAT, PHYS, DRONE } = window.BioGlow;
+  const { FIELD, ROBOT, MAT, PHYS, DRONE, ATTACHMENTS, attachmentVoxels } = window.BioGlow;
   const rad = (d) => (d * Math.PI) / 180;
 
   const WALL = { h: 7.6, t: 3.8 }; // 2x4 lumber border, laid on edge
@@ -1595,7 +1595,7 @@
       }
     } else if (ROBOT.attachment === 'hook') {
       att.add(beam(holes(reach) + 1, L.azure, 0, 1.6, -Ln / 2 - reach / 2, { ry: Math.PI / 2 }));
-    } else {
+    } else if (ROBOT.attachment === 'pusher') {
       att.add(beam(holes(W), L.azure, 0, 0.8, -Ln / 2 - reach + 0.4), beam(holes(W), L.azure, 0, 2.4, -Ln / 2 - reach + 0.4));
       for (const s of [-1, 1]) att.add(beam(3, L.azure, s * (W / 2 - 1.2), 1.6, -Ln / 2 - reach / 2, { ry: Math.PI / 2 }));
     }
@@ -1612,6 +1612,19 @@
       const tip = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.18, 6, 12, Math.PI), L.yellow); tip.position.set(0, -2.6, -0.5); tip.rotation.y = Math.PI / 2; gate.add(tip);
     }
     robot.add(gate);
+    // the lift arm and photo attachments swing on their motor's axle (ROBOT.swing)
+    const sw = ROBOT.swing, swingG = new THREE.Group();
+    if (sw && sw.shape) {
+      const mount = new THREE.Group();
+      mount.position.set(0, sw.spot.z, -sw.spot.u);
+      if (sw.spot.back) mount.rotation.y = Math.PI;
+      mount.add(swingG); att.add(mount);
+      if (ROBOT.attachment === 'lifter') {
+        const len = reach + 1.5, drop = Math.asin((6.4 - 0.6) / len);
+        for (const v of [-2.4, 2.4]) swingG.add(beamAB(L.azure, [v, 0, 0], [v, -len * Math.sin(drop), -len * Math.cos(drop)], [1, 0, 0]));
+        swingG.add(rod([-3.2, 0, 0], [3.2, 0, 0], 0.24, L.black)); // the axle across
+      } else if (ATTACHMENTS[ROBOT.attachment].custom) swingG.add(voxelMesh(ATTACHMENTS[ROBOT.attachment].custom));
+    }
 
     // cables
     if (!adb) {
@@ -1621,7 +1634,54 @@
     }
 
     robot.traverse((m) => { if (m.isMesh && !spots.includes(m)) m.castShadow = true; });
-    return { robot, mCanvas, mTex, centerBtn, eyeLights, gate, wheels: [robot.userData.wheelL, robot.userData.wheelR], csFace, sensorGroups, ds, hub, att, spots, matrix };
+    // motor C (and D) turn the gate, hook or swinging attachment
+    const pose = (r) => {
+      gate.rotation.x = -rad(Math.max(0, 90 - r.armPos));
+      if (sw && sw.shape) swingG.rotation.x = rad(sw.angle(sw.job === 'spare' ? r.sparePos : sw.job ? r.armPos : 0));
+    };
+    return { robot, mCanvas, mTex, centerBtn, eyeLights, gate, pose, wheels: [robot.userData.wheelL, robot.userData.wheelR], csFace, sensorGroups, ds, hub, att, spots, matrix };
+  }
+
+  // An attachment made from photos, as cubes coloured from the photos: the tops from the photo from
+  // above, the rest from the side photo. Robot coordinates (u forward, v right, z up) about its axle
+  // map to x = v, y = z, z = -u.
+  function voxelMesh(def) {
+    const vox = attachmentVoxels(def), c = def.cell, side = def.side, top = def.top;
+    const filled = new Set(vox.cells.map(([i, j, k]) => i + ',' + j + ',' + k));
+    const has = (i, j, k) => filled.has(i + ',' + j + ',' + k);
+    const colour = (m, a, b) => {
+      const hex = m.rgb && m.rgb.substr((b * m.w + a) * 6, 6);
+      return new THREE.Color(hex && hex.length === 6 ? '#' + hex : '#078bc9').convertSRGBToLinear();
+    };
+    const pos = [], col = [], nrm = [];
+    // each face: neighbour step, normal (three axes), and the four corners as (x, y, z) offsets of the half cell
+    const faces = [
+      [[0, 0, -1], [0, 1, 0], [[-1, 1, -1], [1, 1, -1], [1, 1, 1], [-1, 1, 1]]], // up (k is down the side grid)
+      [[0, 0, 1], [0, -1, 0], [[-1, -1, 1], [1, -1, 1], [1, -1, -1], [-1, -1, -1]]], // down
+      [[0, 1, 0], [1, 0, 0], [[1, -1, -1], [1, -1, 1], [1, 1, 1], [1, 1, -1]]], // right (+v)
+      [[0, -1, 0], [-1, 0, 0], [[-1, -1, 1], [-1, -1, -1], [-1, 1, -1], [-1, 1, 1]]], // left
+      [[1, 0, 0], [0, 0, -1], [[-1, -1, -1], [1, -1, -1], [1, 1, -1], [-1, 1, -1]]], // far end (+u)
+      [[-1, 0, 0], [0, 0, 1], [[1, -1, 1], [-1, -1, 1], [-1, 1, 1], [1, 1, 1]]], // near end
+    ];
+    for (const cellIJK of vox.cells) {
+      const [i, j, k] = cellIJK, [u, v, z] = vox.at(cellIJK);
+      for (const [[di, dj, dk], n, corners] of faces) {
+        if (has(i + di, j + dj, k + dk)) continue;
+        const shade = n[1] > 0 ? 1 : n[1] < 0 ? 0.55 : n[2] !== 0 ? 0.8 : 0.92;
+        const cc = (n[1] > 0 ? colour(top, i, j) : colour(side, i, k)).multiplyScalar(shade);
+        const q = corners.map(([a, b, d]) => [v + (a * c) / 2, z + (b * c) / 2, -u + (d * c) / 2]);
+        // wind the two triangles anticlockwise as seen from outside
+        const e1 = [0, 1, 2].map((x) => q[1][x] - q[0][x]), e2 = [0, 1, 2].map((x) => q[2][x] - q[0][x]);
+        const out = (e1[1] * e2[2] - e1[2] * e2[1]) * n[0] + (e1[2] * e2[0] - e1[0] * e2[2]) * n[1] + (e1[0] * e2[1] - e1[1] * e2[0]) * n[2] > 0;
+        for (const t of out ? [0, 1, 2, 0, 2, 3] : [0, 2, 1, 0, 3, 2]) { pos.push(...q[t]); col.push(cc.r, cc.g, cc.b); nrm.push(...n); }
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0 }));
+    return shadowy(mesh);
   }
 
   // Procedural normal map from a height function, for paint, vinyl, tread and wood texture.
@@ -2010,6 +2070,7 @@
         for (const p of pads) scene.remove(p);
         pads = sim.plates.map((pl) => {
           const g = new THREE.Group();
+          if (pl.lift) return g; // a handle on the model itself
           const n = Math.max(2, Math.round(pl.w / U));
           g.add(beam(n, L.orange, 0, 0.6, 0, { ry: Math.PI / 2 }), beam(n, L.orange, 0, 2.0, 0, { ry: Math.PI / 2 }));
           scene.add(g);
@@ -2289,7 +2350,7 @@
       R.wheels[0].rotation.x -= rad(r.encL - lastEnc[0]);
       R.wheels[1].rotation.x -= rad(r.encR - lastEnc[1]);
       lastEnc = [r.encL, r.encR];
-      R.gate.rotation.x = -rad(Math.max(0, 90 - r.armPos));
+      R.pose(r);
       drawMatrix();
       R.centerBtn.material.emissive.set(SPIKE_COLOURS[sim.hub.center] || '#ffffff');
       R.centerBtn.material.color.set(SPIKE_COLOURS[sim.hub.center] || '#ffffff');
@@ -2493,7 +2554,7 @@
       R.wheels[0].rotation.x -= rad(r.encL - lastEnc[0]);
       R.wheels[1].rotation.x -= rad(r.encR - lastEnc[1]);
       lastEnc = [r.encL, r.encR];
-      R.gate.rotation.x = -rad(Math.max(0, 90 - r.armPos));
+      R.pose(r);
       const px = sim.hubPixels(), key = px.join(',');
       if (key !== matrixKey) {
         matrixKey = key;

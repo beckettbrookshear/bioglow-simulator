@@ -285,6 +285,11 @@
   // lift it with a motor. `h` is the handle's underside above the mat, `rise` how far it has to go up
   // (cm), `reach` how far it sticks out of the model. They stay up (ratchets and catches hold them).
   const lift = (key, face, h, rise, extra) => Object.assign({ key, face, h, rise, reach: 1.6, kind: 'lift' }, extra);
+  // 'pull' parts have a handle (a red bar `w` wide, `out` cm in front of the model, `zb` cm up) that only
+  // moves outwards, `travel` cm: something has to hook behind it (between it and the model) and back away.
+  const pull = (key, face, zb, travel, extra) => Object.assign({ key, face, zb, travel, out: 1.6, r: 0.5, w: 3, kind: 'pull' }, extra);
+  // Push parts sit where the real part is: `out` is how far its front sticks out of the model before it
+  // is pushed (at least `travel`, or the robot couldn't push it all the way), `zb` the handle's height.
 
   // M01 drone rig, as built from the official instructions (bags 1 and 2). Each of the four legs is a
   // black 32L Technic axle with an axle-and-pin connector on both ends, so it is rigid: 25.6 cm of axle
@@ -343,22 +348,21 @@
       // anchor towards the pilot and the legs fold up, lifting the drone; push it on into the LiDAR's
       // handle to flip the map.
       { id: 'pilot', mission: 1, name: 'drone launcher', shape: circ(115.1, 108.3, 3.3), h: 9 },
-      { id: 'lidar', mission: 1, name: 'LiDAR map', shape: box(105.15, 91.35, 7.5, 5.5, 30), h: 6, pads: [latch('flip', SW, 2.5, 1.2, { label: 'LiDAR map flipped over' })] },
+      { id: 'lidar', mission: 1, name: 'LiDAR map', shape: box(105.15, 91.35, 7.5, 5.5, 30), h: 6, pads: [latch('flip', SW, 2.2, 1.2, { at: 0.53, w: 1.4, out: 2.5, zb: 3.2, label: 'LiDAR map flipped over' })] }, // its push handle, on the left of the front
       { id: 'seedpod', mission: 2, name: 'seed pod', shape: box(63.65, 59.95, 4.8, 4.8, 45), h: 16 }, // its seeds hang off the ends of the tubes
-      { id: 'rock', mission: 3, name: 'rock', shape: rect(1.2, 45.1, 14, 51.4), h: 9, pads: [{ key: 'flip', face: E, travel: 2, force: 2, kind: 'spring', steps: 2 }] },
+      { id: 'rock', mission: 3, name: 'rock', shape: rect(1.2, 45.1, 14, 51.4), h: 9, pads: [{ key: 'flip', face: E, travel: 2, force: 2, kind: 'spring', steps: 2, at: 0.7, w: 1.6, out: 2.3, zb: 1.2, label: 'research flag' }] }, // the red research flag at the front corner
       { id: 'nest', mission: 4, name: 'nest', shape: rect(6, 6, 17.5, 17.5), h: 7 },
-      { id: 'roots', mission: 5, name: 'plant root', shape: rect(38.3, 0.6, 42.4, 9.3), h: 13, pads: [latch('extend', S, 3, 1.5)] },
-      { id: 'leafcutter', mission: 6, name: 'ant nest', shape: rect(146.1, 0.6, 153.9, 12.3), h: 9, pads: [latch('ant', S, 2.5, 0.8, { label: 'Ant touching the nest' })] },
-      { id: 'fungus', mission: 7, name: 'mycelium', shape: rect(153.9, 0.6, 161.7, 12.3), h: 11, pads: [latch('extend', S, 3, 1.5, { label: 'Mycelium completely extended' })] },
+      { id: 'roots', mission: 5, name: 'plant root', shape: rect(38.3, 0.6, 42.4, 9.3), h: 13, pads: [latch('extend', S, 3, 1.5, { w: 2.4, out: 3.3, zb: 4 })] },
+      { id: 'leafcutter', mission: 6, name: 'ant nest', shape: rect(146.1, 0.6, 153.9, 12.3), h: 9, pads: [latch('ant', S, 2.5, 0.8, { at: -0.96, w: 2.4, out: 2.8, look: 'ant', label: 'Ant touching the nest' })] }, // the ant itself, on its rack
+      { id: 'fungus', mission: 7, name: 'mycelium', shape: rect(153.9, 0.6, 161.7, 12.3), h: 11, pads: [pull('extend', S, 1.0, 3, { at: 0.26, w: 3.2, label: 'Mycelium completely extended', handle: 'red handle of the mycelium' })] },
       { id: 'vine', mission: 8, name: 'tree', shape: rect(50.1, 1.4, 57.7, 14.3), h: 26 }, // the vine is hooked and pulled down
       { id: 'platform', mission: 9, name: 'research tree', shape: rect(57.7, 1.4, 65.3, 14.3), h: 17, pads: [
         lift('raise', S, 1.5, 1.5, { at: -0.72, w: 2.4, label: 'Research platform raised', handle: 'red ball handle' }), // book 7 step 63
-        latch('camera', S, 2.5, 1.5, { at: 0, w: 1.8, label: 'Camera trap deployed' }),
-        latch('seed', S, 1.5, 1, { at: 0.72, w: 1.8, label: 'Seed knocked off the tree' }),
+        latch('camera', S, 1.5, 1.5, { at: 1, w: 1.4, out: 1.8, zb: 6, label: 'Camera trap deployed' }), // the red lever on the trunk
       ] },
-      { id: 'spider', mission: 10, name: 'worm habitat', shape: rect(72.9, 6.7, 76.8, 11.2), h: 9, loose: { mass: 0.04 } },
-      { id: 'snail', mission: 10, name: 'spider web habitat', shape: rect(102.5, 40, 106.5, 43.5), h: 7, loose: { mass: 0.03 } },
-      { id: 'window', mission: 11, name: 'root window', shape: box(140.7, 54.6, 7.8, 7.8, 45), h: 12, pads: [latch('cover', SW, 2, 1.5, { label: 'Root cover down' })] },
+      { id: 'spider', mission: 10, name: 'snail habitat', shape: rect(72.9, 6.7, 76.8, 11.2), h: 9, loose: { mass: 0.04 } },
+      { id: 'snail', mission: 10, name: 'spider habitat', shape: rect(102.5, 40, 106.5, 43.5), h: 7, loose: { mass: 0.03 } },
+      { id: 'window', mission: 11, name: 'root window', shape: box(140.7, 54.6, 7.8, 7.8, 45), h: 12, pads: [pull('cover', SW, 2.7, 2.5, { at: 0.45, w: 2.4, out: 0.8, look: 'model', label: 'Root cover down', handle: 'bar handle of the root cover' })] }, // it falls open when pulled
       { id: 'elder', mission: 12, name: 'forest elder', shape: circ(193.85, 38.3, 3.2), h: 24, pads: [lift('cane', W, 1.2, 1.5, { w: 3, label: 'Cane raised', handle: 'cane' })] },
       { id: 'post', mission: 12, name: 'post', shape: rect(192.6, 56.4, 195, 62.4), h: 6, ringable: true }, // the support tie drops over it
     ],
@@ -373,7 +377,7 @@
       { id: 'seed1', type: 'seed', on: 'seedpod', knock: true, r: 1.4, mass: 0.005 },
       { id: 'seed2', type: 'seed', on: 'seedpod', knock: true, r: 1.4, mass: 0.005 },
       { id: 'seed3', type: 'seed', on: 'seedpod', knock: true, r: 1.4, mass: 0.005 },
-      { id: 'seed4', type: 'seed', on: 'platform', r: 1.3, mass: 0.004 },
+      { id: 'seed4', type: 'seed', on: 'platform', knock: true, r: 1.3, mass: 0.004 }, // hangs on the tree until knocked off
       { id: 'leaf1', type: 'leaf', on: 'nest', hook: true, r: 1.6, mass: 0.004 },
       { id: 'leaf2', type: 'leaf', on: 'nest', hook: true, r: 1.6, mass: 0.004 },
       { id: 'katydid', type: 'katydid', on: 'nest', hook: true, r: 1.4, mass: 0.004 },
@@ -394,8 +398,8 @@
     // The building's three features are on different sides, so each needs its own approach.
     15: { id: 'building', name: 'biocentric building', h: 14, pads: [
       lift('canopy', null, 1.8, 1.5, { side: 'front', w: 4, label: 'Nesting canopy raised', handle: 'crank handle' }), // book 13 steps 20-30
-      latch('skylight', null, 2, 1.5, { side: 'left', w: 4, label: 'Garden skylight completely in' }),
-      lift('hatch', null, 4.4, 1.5, { side: 'right', w: 4, label: 'Compost hatch opened', handle: 'hatch handle' }), // book 13 steps 64-71
+      latch('skylight', null, 2.4, 1.5, { side: 'left', w: 4, out: 2.8, zb: 4.5, label: 'Garden skylight completely in' }),
+      pull('hatch', null, 2.2, 2.5, { side: 'right', w: 3.2, out: 1.4, look: 'flap', label: 'Compost hatch opened', handle: 'red handle of the compost hatch' }), // it swings down to the mat
     ] },
   };
   const DEFAULT_DOCKS = { mine: 15, city: 14, farm: 13 };
@@ -451,8 +455,8 @@
       { label: 'Seed no longer touching the tree', pts: 10, ok: (s) => s.released('platform') >= 1 },
     ] },
     { n: 10, name: 'Fragile Microhabitats', conds: [
-      { label: 'Worm habitat in its original starting position', pts: 10, ok: (s) => !s.touched('spider') },
-      { label: 'Spider web habitat in its original starting position', pts: 10, ok: (s) => !s.touched('snail') },
+      { label: 'Spider habitat in its original starting position', pts: 10, ok: (s) => !s.touched('snail') },
+      { label: 'Snail habitat in its original starting position', pts: 10, ok: (s) => !s.touched('spider') },
     ] },
     { n: 11, name: 'Window to the Past', conds: [{ label: 'Root cover down, touching the mat', pts: 20, ok: (s) => s.done('window', 'cover') }] },
     { n: 12, name: 'Forest Elder', conds: [
@@ -678,6 +682,12 @@
   function polysTouch(a, b, gap) {
     for (const [x, y] of a) if (polyDistance(x, y, b) <= gap) return true;
     for (const [x, y] of b) if (polyDistance(x, y, a) <= gap) return true;
+    // two thin shapes can cross with no corner inside the other
+    const cross = (p, q, r) => (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+    for (let i = 0; i < a.length; i++) for (let j = 0; j < b.length; j++) {
+      const p1 = a[i], p2 = a[(i + 1) % a.length], q1 = b[j], q2 = b[(j + 1) % b.length];
+      if (cross(p1, p2, q1) * cross(p1, p2, q2) < 0 && cross(q1, q2, p1) * cross(q1, q2, p2) < 0) return true;
+    }
     return false;
   }
 
@@ -1064,7 +1074,7 @@
       if (host.id === 'leafcutter') return [cx - 2.4, cy - 3.6 + k * 1.6, 2.9]; // book 6: four leaves standing on liftarms in a row along the back of the nest
       if (host.id === 'vine') { const spot = plateSpot(host.shape, S, 0); return [spot.mx - spot.nx * 1.8, spot.my - spot.ny * 1.8, 8]; } // wrapped on the trunk
       if (host.id === 'elder') { const spot = plateSpot(host.shape, W, 0); return [spot.mx - spot.nx * 1.2, spot.my - spot.ny * 1.2, 5]; } // hanging on the tree
-      if (host.id === 'platform') { const spot = plateSpot(host.shape, S, 0.72); return [spot.mx, spot.my - 1.2, 11]; }
+      if (host.id === 'platform') { const spot = plateSpot(host.shape, S, 0.2); return [spot.mx, spot.my + 1.0, 11]; } // hanging on its red stick in front of the trunk
       return [cx, cy, 0];
     }
 
@@ -1085,9 +1095,10 @@
 
     addPlate(s, st, pd) {
       if (pd.kind === 'lift') return this.addHandle(s, st, pd);
+      if (pd.kind === 'pull') return this.addPull(s, st, pd);
       const spot = plateSpot(s.shape, pd.face, pd.at);
-      const thick = 1, w = pd.w || Math.min(spot.len * 0.8, 8);
-      const cx = spot.mx + spot.nx * (pd.travel + thick / 2), cy = spot.my + spot.ny * (pd.travel + thick / 2);
+      const thick = 1, w = pd.w || Math.min(spot.len * 0.8, 8), out = pd.out !== undefined ? pd.out : pd.travel + thick;
+      const cx = spot.mx + spot.nx * (out - thick / 2), cy = spot.my + spot.ny * (out - thick / 2);
       const ang = Math.atan2(spot.ny, spot.nx);
       const body = this.world.createBody({ type: 'dynamic', position: Vec2(cx, cy), angle: ang, linearDamping: 4 });
       body.createFixture(planck.Box(thick / 2, w / 2), { friction: 0.6, restitution: 0, density: 0.02 / (thick * w) });
@@ -1100,7 +1111,7 @@
       }, this.ground, body, Vec2(cx, cy), Vec2(-spot.nx, -spot.ny)));
       const ps = { max: 0, strokes: 0, latched: false };
       st.pads[pd.key] = ps;
-      this.plates.push({ id: s.id, key: pd.key, pad: pd, solid: s, body, joint, st, ps, travel: pd.travel, steps: pd.steps || 1, spring, w, thick, h: Math.min(s.h, 6), t: 0, speed: 0, poly: null, nx: spot.nx, ny: spot.ny });
+      this.plates.push({ id: s.id, key: pd.key, pad: pd, solid: s, body, joint, st, ps, travel: pd.travel, steps: pd.steps || 1, spring, w, thick, h: Math.min(s.h, 6), t: 0, speed: 0, poly: null, nx: spot.nx, ny: spot.ny, face: [spot.mx, spot.my], out });
     }
 
     // A handle to lift (see `lift`): no body of its own (the model's base is what the robot bumps into),
@@ -1118,6 +1129,28 @@
       });
     }
 
+    // A handle to pull (see `pull`): no body of its own either; it moves out as far as something hooked
+    // behind it has pulled it. `s` is how far out it is.
+    addPull(s, st, pd) {
+      const spot = plateSpot(s.shape, pd.face, pd.at);
+      const ps = { max: 0, strokes: 0, latched: false };
+      st.pads[pd.key] = ps;
+      const pl = {
+        id: s.id, key: pd.key, pad: pd, solid: s, pull: true, st, ps, w: pd.w, thick: 2 * pd.r, travel: pd.travel, s: 0, hooks: new Set(), front: new Set(), hinted: false,
+        face: [spot.mx, spot.my], nx: spot.nx, ny: spot.ny, tx: -spot.ny, ty: spot.nx, ang: Math.atan2(spot.ny, spot.nx), t: 0, speed: 0,
+      };
+      this.placePull(pl);
+      this.plates.push(pl);
+    }
+    // the bar's outline on the mat, where it is now
+    placePull(pl) {
+      const d = pl.pad.out + pl.s, r = pl.pad.r, w2 = pl.w / 2;
+      const at = (a, b) => [pl.face[0] + pl.nx * a + pl.tx * b, pl.face[1] + pl.ny * a + pl.ty * b];
+      pl.poly = [at(d - r, -w2), at(d + r, -w2), at(d + r, w2), at(d - r, w2)];
+      [pl.cx, pl.cy] = at(d, 0);
+      pl.t = pl.s;
+    }
+
     syncFromWorld() {
       const r = this.robot, p = this.body.getPosition();
       r.x = p.x; r.y = p.y; r.h = deg(this.body.getAngle()) + 90;
@@ -1132,7 +1165,7 @@
         s.pose = { dx: q.x - s.rest.x, dy: q.y - s.rest.y, da: deg(s.body.getAngle()) };
       }
       for (const pl of this.plates) {
-        if (pl.lift) continue;
+        if (pl.lift || pl.pull) continue;
         const q = pl.body.getPosition(), a = pl.body.getAngle();
         const c = Math.cos(a), sn = Math.sin(a);
         pl.t = pl.joint.getJointTranslation();
@@ -1459,6 +1492,7 @@
       const tag = (s2) => ' (M' + String(s2.mission).padStart(2, '0') + ')';
       for (const pl of this.plates) {
         if (pl.lift) { this.updateHandle(pl, tag); continue; }
+        if (pl.pull) { this.updatePull(pl, tag); continue; }
         const ps = pl.ps, f = clamp(pl.t / pl.travel, 0, 1);
         if (pl.spring) {
           if (!ps.latched && f >= 0.85) {
@@ -1512,7 +1546,7 @@
           const [hx, hy] = centroid(this.solids.find((s2) => s2.id === it.on).shape);
           const a = Math.atan2(it.y - hy, it.x - hx) + (Math.random() < 0.5 ? 1 : -1) * rad(60 + Math.random() * 30);
           this.releaseItem(it, Math.cos(a), Math.sin(a), 25 + Math.random() * 15);
-          this.log('Knocked a seed off the stalk (M02)');
+          this.log(it.on === 'platform' ? 'Knocked the seed off the tree (M09)' : 'Knocked a seed off the stalk (M02)');
         }
       }
       // M01: the drone is up once the legs fold enough to lift it off the mat
@@ -1574,12 +1608,50 @@
         this.onLatched(pl);
       } else if (before === 0 && ps.max > 0) this.log('Lifting the ' + pl.pad.handle + ' of the ' + pl.solid.name + tag(pl.solid));
       // a push on a handle does nothing: once the robot has pushed on it for a while with nothing under it, say why
-      if (!pl.hinted && ps.max === 0 && (this.hintTick = (this.hintTick || 0) + 1) % 10 === 0) {
+      if (!pl.hinted && ps.max === 0 && (pl.tick = (pl.tick || 0) + 1) % 10 === 0) {
         pl.pushT = !pl.under.size && this.robotParts(0).some((pp) => polysTouch(pp, pl.poly, 0)) ? (pl.pushT || 0) + 10 / 200 : 0;
       }
       if (!pl.hinted && pl.pushT > 0.75) {
         pl.hinted = true;
         this.log('The ' + pl.pad.handle + ' of the ' + pl.solid.name + ' has to be lifted, not pushed: get an attachment under it (' + pl.h + ' cm up) and lift it with a motor' + tag(pl.solid));
+      }
+    }
+
+    // A pull handle goes out with the attachment points hooked behind it. A point is hooked when it is
+    // between the bar and the model, at about the bar's height, having got there from above or from the
+    // side (not by going through the bar).
+    updatePull(pl, tag) {
+      const ps = pl.ps, r = this.robot, pd = pl.pad;
+      if (pl.s >= pl.travel || Math.hypot(r.x - pl.cx, r.y - pl.cy) > ROBOT.length + ROBOT.basket + 12) { pl.hooks.clear(); pl.front.clear(); return; }
+      const pts = this.liftPoints(), d = pd.out + pl.s, w2 = pl.w / 2 + 0.3;
+      const zLo = pd.zb - pd.r - 1.5, zHi = pd.zb + pd.r + 0.2;
+      const hooks = new Set(), front = new Set();
+      let reach = -Infinity;
+      pts.forEach(([x, y, z], i) => {
+        const dx = x - pl.face[0], dy = y - pl.face[1];
+        const a = dx * pl.nx + dy * pl.ny, b = dx * pl.tx + dy * pl.ty;
+        if (Math.abs(b) > w2 || z < zLo || z > zHi) return;
+        if (pl.hooks.has(i) && a >= -0.4) { hooks.add(i); reach = Math.max(reach, a); return; } // still hooked: it drags the bar
+        if (a >= d - pd.r) { if (a <= d + pd.r && z > pd.zb - pd.r && z < pd.zb + pd.r - 0.3) front.add(i); return; } // in the bar (passing over or under it doesn't count)
+        if (a < -0.4) return;
+        if (!pl.front.has(i)) { hooks.add(i); reach = Math.max(reach, a); } // came from above or the side
+      });
+      pl.hooks = hooks; pl.front = front;
+      const before = ps.max;
+      // the hook drags the bar: its back stays just in front of the furthest hooked point
+      if (reach > -Infinity) {
+        const s2 = clamp(reach + pd.r - pd.out + 0.05, 0, pl.travel);
+        if (s2 > pl.s) { pl.s = s2; this.placePull(pl); ps.max = pl.s / pl.travel; }
+      }
+      if (before < DONE && ps.max >= DONE) { this.log(pd.label + tag(pl.solid)); this.onLatched(pl); }
+      else if (before === 0 && ps.max > 0) this.log('Pulling the ' + pd.handle + tag(pl.solid));
+      // pushing it does nothing: say why, once
+      if (!pl.hinted && ps.max === 0 && (pl.tick = (pl.tick || 0) + 1) % 10 === 0) {
+        pl.pushT = !hooks.size && this.robotParts(0).some((pp) => polysTouch(pp, pl.poly, 0.3)) ? (pl.pushT || 0) + 10 / 200 : 0;
+      }
+      if (!pl.hinted && pl.pushT > 0.75) {
+        pl.hinted = true;
+        this.log('The ' + pd.handle + ' has to be pulled, not pushed: get a hook down behind it (between it and the model, ' + pd.zb + ' cm up) and back away' + tag(pl.solid));
       }
     }
 

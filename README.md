@@ -6,9 +6,9 @@ A browser simulator for practising FIRST LEGO League robot runs on the BIOGLOW f
 
 You can also download this repo and open `index.html` in a browser. No server or install is needed.
 
-## Lifting mission parts and photo attachments
+## Mission models and photo attachments
 
-Handles on M09 (research platform), M12 (cane) and M15 (crank and hatch) have to be lifted by an attachment that gets under them and is turned by a motor; pushing them does nothing. The **Lift arm** attachment does this. On the Robot tab, **Make an attachment from photos** turns two photos of your own attachment (from the side and from above) into a 3D model fitted to an attachment motor, so programs drive it by turning that motor. It's built from the two outlines and kept in your browser.
+Each mission model's moving part works like the real one: some are pushed (the ant into its nest, M06), some pulled with a hook from behind (the mycelium, M07; the root cover, M11; the compost hatch, M15), some lifted from underneath by a motor-driven attachment (M09 platform, M12 cane, M15 canopy), and seeds are knocked off (M02, M09). The **Lift arm** attachment does the lifting. On the Robot tab, **Make an attachment from photos** turns two photos of your own attachment (from the side and from above) into a 3D model fitted to an attachment motor, so programs drive it by turning that motor. It's built from the two outlines and kept in your browser.
 
 ## Real robot
 

@@ -902,7 +902,7 @@
         group: g,
         update(st) {
           const p = padMax(st, 'ant');
-          ease(rack, 'position.x', p * 2.5);
+          ease(rack, 'position.x', -3.85 + p * 2.5); // the ant starts on the rack's end, out of the nest
           ease(gr20, 'rotation.z', -p * 6); ease(gr28, 'rotation.z', -p * 6); ease(gr12, 'rotation.z', p * 9);
         },
       };
@@ -932,9 +932,8 @@
       const trap = new THREE.Group();
       trap.position.set(-0.8, ty, 0);
       trap.add(beamAB(L.white, [0, 0, 5.0], [0, 0, 5.0 - 14 * U], X));
-      for (const s2 of [-1, 1]) trap.add(rod([0, 0, 5.0], [s2 * 1.2, 0, 5.0], 0.22, L.red));
-      const ballG = cached('ball', () => new THREE.SphereGeometry(0.5, 16, 12));
-      for (const s2 of [-1, 1]) { const b2 = new THREE.Mesh(ballG, L.red); b2.position.set(s2 * 1.6, 0, 5.0); trap.add(b2); }
+      // the white liftarm down to the red T-handle lying on the mat in front (drawn with the handles)
+      trap.add(beamAB(L.white, [0, 0, 5.0], [0, 1.0 - ty, f.d / 2 + 1.6], X));
       const head = new THREE.Group(); // pivots on the tan pin at the far end of the 15L liftarm
       head.position.set(0, 0, 5.0 - 14 * U);
       for (const s2 of [-1, 1]) {
@@ -954,8 +953,8 @@
         group: shadowy(g),
         update(st) {
           const p = padMax(st, 'extend');
-          ease(trap, 'position.z', z0 - p * 2.4);
-          ease(head, 'rotation.x', -1.9 * (1 - p)); // cocked up over the base until the handle is pushed in
+          ease(trap, 'position.z', z0 + p * 3); // pulled out by its handle
+          ease(head, 'rotation.x', -1.9 * (1 - p)); // cocked up over the base until it is pulled all the way
         },
       };
     },
@@ -1180,13 +1179,13 @@
       // steps 1-8: the hinged door on the window side - a red 1x12 plate, a brown 6x10 plate, a black 2x4 tile,
       // red tiles and a shovel - standing closed over the window until it's knocked down
       const cover = new THREE.Group();
-      cover.position.set(0, PLATE, 3.2 + 0.1);
+      cover.position.set(0, PLATE, f.d / 2 + 0.6); // its bar handle sticks out of the front, where the robot hooks it
       const door = new THREE.Group(); door.rotation.x = -Math.PI / 2; // built lying flat, stood up on its hinges
       door.add(plate(10, 6, L.brown, 0, 0, 2.4), plate(12, 1, L.red, 0, 0, 0.0), tile(4, 2, L.black, -1.6, PLATE, 0.4), tile(4, 1, L.red, 3.2, PLATE, 0.0), tile(1, 3, plastic('#a95500'), 3.2, PLATE, 2.0));
       door.add(rod([-2.4, -0.2, 2.4], [-0.4, -0.2, 2.4], 0.1, L.dbg));
       cover.add(door);
       g.add(cover);
-      return { group: g, update(st) { ease(cover, 'rotation.x', st.presses ? Math.PI / 2 : 0); } };
+      return { group: g, update(st) { const p = padMax(st, 'cover'); ease(cover, 'rotation.x', p >= 0.9 ? Math.PI / 2 : p * 0.5); } }; // pulled by its bar, then it falls open
     },
     elder(f) { // M12 Forest Elder, book 10 steps 1-23: a tan tree on a green 8x8 round plate. Its trunk is tan 2x2
       // round bricks on a yellow 11L axle, topped by a bent cylinder and a segmented bent horn with leafy
@@ -1418,7 +1417,6 @@
         update(st) {
           ease(canopy, 'position.y', roofY + 2 * PLATE + 0.1 + padMax(st, 'canopy') * 2.7);
           ease(sky, 'position.x', 3.2 - padMax(st, 'skylight') * 2.4);
-          ease(hatch, 'rotation.x', padDone(st, 'hatch') ? -1.2 : 0);
         },
       };
     },
@@ -2063,24 +2061,57 @@
     }
     buildModels();
 
-    // spring-loaded push pads (orange Technic beams the robot has to push in)
+    // The parts the robot works that aren't drawn by their model: red ball handles on red axles where a
+    // part is pushed in, red T-bars where one is pulled out, and the compost hatch's flap. Lift handles,
+    // the ant and the root cover are drawn (and moved) by their own models.
     let pads = [], padSource = null;
+    const ballGeo = () => cached('ball', () => new THREE.SphereGeometry(0.5, 16, 12));
+    function padPart(pl) {
+      const g = new THREE.Group(), pd = pl.pad, look = pd.look;
+      if (pl.lift || look === 'ant' || look === 'model') return g;
+      if (pl.pull) { // a red axle across with a ball at each end, on a stem back into the model
+        const bar = new THREE.Group();
+        bar.add(rod([0, 0, -pl.w / 2], [0, 0, pl.w / 2], 0.24, L.red), rod([look === 'flap' ? -0.8 : -(pd.out + pl.travel), 0, 0], [0, 0, 0], 0.24, L.red));
+        for (const e of [-1, 1]) { const b = new THREE.Mesh(ballGeo(), L.red); b.position.set(0, 0, e * (pl.w / 2 + 0.3)); bar.add(b); }
+        bar.position.y = pd.zb;
+        if (look === 'flap') { // a dark flap hinged at the bottom of the wall, the bar near its top
+          const flap = new THREE.Group();
+          const panel = new THREE.Mesh(boxGeo(0.32, 3.2, pl.w + 0.8), L.dbg); panel.position.set(0.16, 1.6, 0);
+          flap.add(panel);
+          flap.position.set(0.6, 0.35, 0); // the hinge, just proud of the wall
+          bar.position.set(pd.out - 0.6, pd.zb - 0.35, 0);
+          flap.add(bar);
+          g.add(flap);
+          g.userData.flap = flap;
+        } else g.add(bar);
+        scene.add(shadowy(g));
+        return g;
+      }
+      // pushed: a red axle out of the model with a red ball on the end, and a red liftarm across a wide part
+      const len = pl.out + 0.6;
+      g.add(rod([-len, pd.zb || 1.2, 0], [0, pd.zb || 1.2, 0], 0.24, L.red));
+      const b = new THREE.Mesh(ballGeo(), L.red); b.position.set(0.1, pd.zb || 1.2, 0); g.add(b);
+      if (pl.w >= 2) g.add(beam(Math.max(2, Math.round(pl.w / U)), L.red, -0.2, pd.zb || 1.2, 0, { ry: Math.PI / 2 }));
+      scene.add(shadowy(g));
+      return g;
+    }
     function syncPads() {
       if (sim.plates !== padSource) {
         for (const p of pads) scene.remove(p);
-        pads = sim.plates.map((pl) => {
-          const g = new THREE.Group();
-          if (pl.lift) return g; // a handle on the model itself
-          const n = Math.max(2, Math.round(pl.w / U));
-          g.add(beam(n, L.orange, 0, 0.6, 0, { ry: Math.PI / 2 }), beam(n, L.orange, 0, 2.0, 0, { ry: Math.PI / 2 }));
-          scene.add(g);
-          return g;
-        });
+        pads = sim.plates.map(padPart);
         padSource = sim.plates;
       }
       sim.plates.forEach((pl, i) => {
-        pads[i].position.set(pl.cx, 0.12, pl.cy);
-        pads[i].rotation.y = -pl.ang;
+        const g = pads[i];
+        if (g.userData.flap) { // turns about its hinge on the wall, down onto the mat when it's fully open
+          g.position.set(pl.face[0], 0.12, pl.face[1]);
+          g.rotation.y = -pl.ang;
+          g.userData.flap.rotation.z = -Math.min(1, pl.ps.max / 0.9) * Math.PI / 2;
+          return;
+        }
+        const front = pl.pull ? 0 : pl.thick / 2; // a push part's handle is at the front of its plate
+        g.position.set(pl.cx + Math.cos(pl.ang) * front, 0.12, pl.cy + Math.sin(pl.ang) * front);
+        g.rotation.y = -pl.ang;
       });
     }
 

@@ -747,7 +747,7 @@ robot.log('Done at', robot.time(), 's');
       ctx.fillText(String(s.mission).padStart(2, '0'), cx * S, cy * S + 0.5);
     }
 
-    // spring-loaded push pads
+    // the parts the robot works: red to push, red with an arrow to pull, dashed to lift
     for (const pl of sim.plates) {
       polyPath(pl.poly);
       const done = pl.ps.latched || pl.ps.max >= 0.9;
@@ -757,8 +757,18 @@ robot.log('Done at', robot.time(), 's');
         ctx.fillStyle = '#4a2000'; ctx.fillText('\u2191', pl.cx * S, pl.cy * S + 0.5);
         continue;
       }
-      ctx.fillStyle = done ? '#34ffd0' : '#ff7a1a'; ctx.fill();
-      ctx.lineWidth = 1; ctx.strokeStyle = '#4a2000'; ctx.stroke();
+      if (pl.pull) { // a handle to pull: red, with an arrow pointing the way it has to go
+        ctx.fillStyle = done ? '#34ffd0' : '#d62828'; ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+        if (!done) {
+          const ax = pl.cx * S, ay = pl.cy * S, ex = ax + pl.nx * 3 * S, ey = ay + pl.ny * 3 * S;
+          ctx.strokeStyle = '#d62828'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(ex, ey); ctx.stroke();
+          ctx.beginPath(); ctx.arc(ex, ey, 2.5, 0, Math.PI * 2); ctx.fillStyle = '#d62828'; ctx.fill();
+        }
+        continue;
+      }
+      ctx.fillStyle = done ? '#34ffd0' : '#d62828'; ctx.fill(); // the part to push (a red handle, or the ant)
+      ctx.lineWidth = 1; ctx.strokeStyle = '#4a0000'; ctx.stroke();
     }
 
     // cables and chains tying loose models to their mission model

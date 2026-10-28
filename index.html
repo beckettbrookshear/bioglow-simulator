@@ -339,12 +339,18 @@ robot.holding()  robot.log(...)</pre>
       </details>
 
       <details>
-        <summary>Lifting mission parts</summary>
-        <p>Some mission models are worked by a handle that has to be lifted, like on the real table: the research platform's red ball handle (M09), the
-          forest elder's cane (M12), and the biocentric building's crank and hatch handles (M15). Pushing them does nothing. Get an attachment
-          <b>under</b> the handle (the 2D view marks each one with a dashed orange box and an arrow), then lift it by turning the attachment's motor.
-          The <b>Lift arm</b> attachment on the Robot tab is made for this: its fork rests just above the mat, and turning motor C clockwise lifts it.
-          A handle stays up once it is lifted far enough.</p>
+        <summary>Working the mission models</summary>
+        <p>Each mission model's moving part works the way the real one does, in the same place:</p>
+        <p><b>Push</b> (drawn with red ball handles, or the part itself): the LiDAR map's handle (M01), the research flag (M03), the plant root (M05),
+          the ant on its rack into the nest (M06; push it gently or the leaves fall out), the camera trap lever (M09) and the garden skylight (M15).</p>
+        <p><b>Pull</b> (red T-handles; the 2D view adds an arrow the way they go): the mycelium (M07), the root cover's bar (M11) and the compost hatch
+          (M15). Pushing them does nothing. Get a hook down <b>behind</b> the handle, between it and the model (close the <b>Hook arm</b> over it, or
+          lower an attachment of your own), then back away.</p>
+        <p><b>Lift</b> (dashed boxes with an arrow up): the research platform's red ball handle (M09), the cane (M12) and the canopy's crank (M15).
+          Get an attachment <b>under</b> the handle and lift it with a motor; the <b>Lift arm</b> attachment is made for this. A handle stays up once
+          it is lifted far enough.</p>
+        <p><b>Knock off</b>: the seeds on the seed pod (M02) and the seed hanging on the research tree (M09) fall when the robot hits them.</p>
+        <p>The log says why when a part needs a different move, for example a push on a handle that has to be pulled.</p>
       </details>
 
       <details>

@@ -78,13 +78,25 @@
         log('Connected to ' + hub.name);
         say('');
       } catch (e) {
-        const cancelled = e && e.name === 'NotFoundError';
-        log(cancelled ? 'No hub chosen' : 'Could not connect: ' + (e.message || e));
-        if (!cancelled) say('Could not connect: ' + esc(e.message || e) + '. Turn the hub on, press its Bluetooth button and try again.', 'bad');
+        // Chrome reports both "you pressed Cancel" and "Bluetooth is off" as NotFoundError; only the message differs
+        const msg = String((e && e.message) || e), cancelled = e && e.name === 'NotFoundError' && /cancel/i.test(msg);
+        log(cancelled ? 'No hub chosen' : 'Could not connect: ' + (e && e.name ? e.name + ': ' : '') + msg);
+        if (!cancelled) say('Could not connect: ' + esc(msg.replace(/\.$/, '')) + '. ' + connectTip(e, msg), 'bad');
         if (hub.connected) hub.disconnect();
       }
       $('rrConnect').disabled = false;
       refresh();
+    }
+
+    // What to try next, from the kind of error the browser gave.
+    function connectTip(e, msg) {
+      if (/adapter|bluetooth.*(off|unavailable|not available)|permission|denied|globally disabled/i.test(msg))
+        return 'Turn Bluetooth on, and on a Mac allow Chrome in System Settings > Privacy & Security > Bluetooth, then restart Chrome.';
+      if (/did not answer/i.test(msg))
+        return 'The hub connected but did not reply. Make sure it has SPIKE 3 firmware (update it once in the SPIKE App), then turn it off and on and try again.';
+      if ((e && e.name === 'NetworkError') || /gatt|connection|disconnected/i.test(msg))
+        return 'Close the SPIKE App and any other tab using the hub (it can only talk to one at a time), turn the hub off and on, then try again.';
+      return 'Turn the hub on, press its Bluetooth button and try again.';
     }
 
     function onConsole(text) {

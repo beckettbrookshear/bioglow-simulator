@@ -65,7 +65,6 @@
     new THREE.Vector2(0.225, 0.082), new THREE.Vector2(0.2, 0.085), new THREE.Vector2(0, 0.085)], 18));
   // Bricks get slightly rounded edges (moulded plastic is never perfectly sharp).
   const boxGeo = (w, h, d) => (THREE.RoundedBoxGeometry ? new THREE.RoundedBoxGeometry(w, h, d, 2, Math.min(0.06, h / 4, w / 4, d / 4)) : new THREE.BoxGeometry(w, h, d));
-  const holeGeo = cached('hole', () => new THREE.CylinderGeometry(0.24, 0.24, 0.74, 12));
 
   function shadowy(o) { o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } }); return o; }
 
@@ -136,23 +135,24 @@
     return shadowy(g);
   }
 
+  // Real Technic parts have holes that go right through, the same colour as the part inside, so they're
+  // cut out of the shape: you see through them, with soft shading on the walls of each hole.
+  const HOLE_R = 0.245;
+  const holePath = (cx, cy) => { const h = new THREE.Path(); h.absarc(cx, cy, HOLE_R, 0, Math.PI * 2, true); return h; };
   // A Technic beam `holes` long along local X (holes run along Z), centred at x,y,z.
+  const beamGeo = (holes) => cached('beamH' + holes, () => {
+    const len = holes * U, r = 0.36, a = -len / 2 + r, b = len / 2 - r;
+    const sh = new THREE.Shape();
+    sh.moveTo(a, -r); sh.lineTo(b, -r); sh.absarc(b, 0, r, -Math.PI / 2, Math.PI / 2, false); sh.lineTo(a, r); sh.absarc(a, 0, r, Math.PI / 2, Math.PI * 1.5, false);
+    for (let i = 0; i < holes; i++) sh.holes.push(holePath((i - (holes - 1) / 2) * U, 0));
+    const e = new THREE.ExtrudeGeometry(sh, { depth: 0.66, bevelEnabled: true, bevelThickness: 0.03, bevelSize: 0.02, bevelSegments: 1, curveSegments: 14 });
+    e.translate(0, 0, -0.33);
+    return e;
+  });
   function beam(holes, mat, x, y, z, opts) {
     const o = opts || {};
     const g = new THREE.Group();
-    const len = holes * U;
-    const body = new THREE.Mesh(cached('beam' + holes, () => boxGeo(len - 0.08, 0.72, 0.72)), mat);
-    g.add(body);
-    for (const end of [-1, 1]) {
-      const cap = new THREE.Mesh(cached('cap', () => new THREE.CylinderGeometry(0.36, 0.36, 0.72, 14)), mat);
-      cap.rotation.x = Math.PI / 2;
-      cap.position.x = end * (len / 2 - 0.04);
-      g.add(cap);
-    }
-    const holesMesh = new THREE.InstancedMesh(holeGeo, L.holeDark, holes);
-    const m = new THREE.Matrix4(), r90 = new THREE.Matrix4().makeRotationX(Math.PI / 2);
-    for (let i = 0; i < holes; i++) { m.makeTranslation((i - (holes - 1) / 2) * U, 0, 0).multiply(r90); holesMesh.setMatrixAt(i, m); }
-    g.add(holesMesh);
+    g.add(new THREE.Mesh(beamGeo(holes), mat));
     g.position.set(x || 0, y || 0, z || 0);
     if (o.ry) g.rotation.y = o.ry;
     if (o.rz) g.rotation.z = o.rz;
@@ -176,14 +176,17 @@
 
   // A 1 x n Technic brick, long along local x, with n-1 holes through it along z (centres 0.58 cm up).
   function techBrick(n, mat, x, y, z, opts) {
-    const g = brick(n, 1, 3, mat, 0, 0, 0, { whole: true });
-    const ring = cached('techRing', () => new THREE.RingGeometry(0.24, 0.31, 16));
-    const hole = cached('techHole', () => new THREE.CircleGeometry(0.24, 16));
-    for (let i = 0; i < n - 1; i++) for (const s of [-1, 1]) {
-      const hx = (i - (n - 2) / 2) * U;
-      const r = new THREE.Mesh(ring, mat); r.position.set(hx, 0.58, s * (U / 2 + 0.012)); r.rotation.y = s < 0 ? Math.PI : 0; g.add(r);
-      const h = new THREE.Mesh(hole, L.holeDark); h.position.set(hx, 0.58, s * (U / 2 + 0.006)); h.rotation.y = s < 0 ? Math.PI : 0; g.add(h);
-    }
+    const g = new THREE.Group();
+    const geo = cached('techBrickH' + n, () => {
+      const w = n * U / 2 - 0.01, sh = new THREE.Shape();
+      sh.moveTo(-w, 0); sh.lineTo(w, 0); sh.lineTo(w, BRICK); sh.lineTo(-w, BRICK); sh.lineTo(-w, 0);
+      for (let i = 0; i < n - 1; i++) sh.holes.push(holePath((i - (n - 2) / 2) * U, 0.58));
+      const e = new THREE.ExtrudeGeometry(sh, { depth: U - 0.06, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.02, bevelSegments: 1, curveSegments: 14 });
+      e.translate(0, 0, -(U - 0.06) / 2);
+      return e;
+    });
+    g.add(new THREE.Mesh(geo, mat));
+    studGrid(g, n, 1, mat, BRICK);
     g.position.set(x || 0, y || 0, z || 0);
     if (opts && opts.ry) g.rotation.y = opts.ry;
     return shadowy(g);

@@ -2350,11 +2350,21 @@
       fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
       composer.addPass(fxaa);
     }
+    // Fast also draws at the screen's basic resolution (no 125-150% display scaling) with a smaller
+    // shadow map: big savings on laptops with built-in graphics.
+    const fullRatio = renderer.getPixelRatio(), fullShadow = sun.shadow.mapSize.x;
     function setQuality(q) {
       quality = canPost ? q : 'fast';
+      const ratio = quality === 'fast' ? 1 : fullRatio, shadow = quality === 'fast' ? Math.min(2048, fullShadow) : fullShadow;
+      if (renderer.getPixelRatio() !== ratio) { renderer.setPixelRatio(ratio); resize(); }
+      if (sun.shadow.mapSize.x !== shadow) {
+        sun.shadow.mapSize.set(shadow, shadow);
+        if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
+      }
       if (quality === 'realistic') {
         renderer.toneMapping = THREE.NoToneMapping;
         if (!composer) buildComposer();
+        else { composer.setPixelRatio(ratio); composer.setSize(container.clientWidth || 800, container.clientHeight || 450); fxaa.material.uniforms.resolution.value.set(1 / ((container.clientWidth || 800) * ratio), 1 / ((container.clientHeight || 450) * ratio)); }
       } else {
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
         renderer.toneMappingExposure = 0.95;

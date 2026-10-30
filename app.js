@@ -875,9 +875,11 @@ robot.log('Done at', robot.time(), 's');
     }
     const qBtn = $('quality');
     if (view3d && view3d.canPost) {
-      const applyQ = (q) => { view3d.setQuality(q); qBtn.textContent = q === 'realistic' ? 'Realistic' : 'Fast'; qBtn.classList.toggle('on', q === 'realistic'); store.set('bioglow-quality', q); };
-      applyQ(store.get('bioglow-quality') || 'realistic');
-      qBtn.onclick = () => applyQ(view3d.quality === 'realistic' ? 'fast' : 'realistic');
+      const applyQ = (q) => { view3d.setQuality(q); qBtn.textContent = q === 'realistic' ? 'Realistic' : 'Fast'; qBtn.classList.toggle('on', q === 'realistic'); };
+      const picked = store.get('bioglow-quality-picked'); // only set when someone clicks the button
+      applyQ(picked || 'realistic');
+      if (!picked) autoQuality = applyQ;
+      qBtn.onclick = () => { applyQ(view3d.quality === 'realistic' ? 'fast' : 'realistic'); store.set('bioglow-quality-picked', view3d.quality); autoQuality = null; };
     } else qBtn.hidden = true;
     if (!view3d) Object.assign($('hint'), { className: 'hint warn', textContent: '3D view needs an internet connection to load three.js - showing 2D.' });
     setView(view);
@@ -1114,6 +1116,26 @@ robot.log('Done at', robot.time(), 's');
     liveStats.innerHTML = rows.join('');
   }
 
+  // Realistic quality is too much for many laptops (often Windows ones with built-in graphics). If the
+  // 3D view keeps running under 25 frames a second and nobody has picked a quality, drop to Fast.
+  let autoQuality = null, watchFrom = 0, slowMs = 0, totalMs = 0;
+  function watchFrameRate(now, ms) {
+    if (!autoQuality || view === '2d' || view3d.quality !== 'realistic' || document.hidden) { watchFrom = 0; return; }
+    if (!watchFrom) { watchFrom = now + 3000; slowMs = totalMs = 0; return; } // the first seconds are slow while everything is built
+    if (now < watchFrom) return;
+    totalMs += ms;
+    if (ms > 40) slowMs += ms;
+    if (totalMs < 3000) return;
+    const slow = slowMs > totalMs * 0.6;
+    slowMs = totalMs = 0;
+    if (!slow) return;
+    autoQuality('fast');
+    autoQuality = null;
+    const hint = $('hint'), was = hint.textContent;
+    hint.textContent = 'Switched to Fast quality so the view stays smooth - click Fast to go back to Realistic.';
+    setTimeout(() => { hint.textContent = was; }, 10000);
+  }
+
   // ---- main loop -----------------------------------------------------------
   const channel = new MessageChannel();
   const macrotask = () => new Promise((res) => { channel.port1.onmessage = () => res(); channel.port2.postMessage(0); });
@@ -1124,6 +1146,7 @@ robot.log('Done at', robot.time(), 's');
   async function frame(now) {
     requestAnimationFrame(frame);
     const dtReal = clampDt((now - last) / 1000);
+    watchFrameRate(now, now - last);
     last = now;
     if (busy) return;
     busy = true;

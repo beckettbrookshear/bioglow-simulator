@@ -145,6 +145,7 @@
           <input type="file" id="file" accept=".llsp3,.json,.js,.txt">
         </label>
         <button id="example">Load example</button>
+        <button id="sync" title="Share these blocks live with another computer: enter the same code on both">Sync</button>
         <button id="save" title="Save this program to open in the simulator again">Save to file</button>
         <span class="linked spike-actions">
           <button id="exportSpike" class="suggested" title="Save a .llsp3 project that the LEGO Education SPIKE App opens">Save for SPIKE App</button>
@@ -357,6 +358,9 @@ E  color sensor (looking down)      F  distance sensor (facing forward)</pre>
           and <b>Open file</b> reads a .llsp3 project made in the SPIKE App. If that program's robot is wired differently, its ports are moved to match the simulator robot's
           (and put back when you save it for the SPIKE App again; see Setup). Pick your robot and its wiring on the Robot tab: the
           <b>SPIKE Prime Advanced Driving Base</b> drives on A+E with color sensors on B and F, so its programs run unchanged.</p>
+        <p><b>Sync:</b> press <b>Sync</b> on the Code tab and type the same 4&ndash;8 digit code on each computer. Block changes made on one
+          then appear on all the others, and a computer that joins later gets the current program (its own program is kept in that browser first).
+          The program goes through a free public relay, scrambled with your code, so use a code other teams won't guess.</p>
         <p><b>JavaScript</b> (simulator API, with gyro-assisted drive and turns): use <code>await</code> on every action that takes time.</p>
         <pre>await robot.drive(cm, speed=50)    // negative cm = reverse
 await robot.turn(deg, speed=40)    // + = clockwise (right)
@@ -462,6 +466,8 @@ robot.holding()  robot.log(...)</pre>
   <script src="attachment-maker.js"></script>
   <script src="blocks.js"></script>
   <script src="spike-file.js"></script>
+  <script src="https://unpkg.com/mqtt@5.10.1/dist/mqtt.min.js"></script>
+  <script src="sync.js"></script>
   <script src="realhub.js"></script>
   <script>if (/[?&]mockhub\b/.test(location.search)) document.write('<script src="tools/mock-hub.js"><\/script>');</script>
   <script src="realrobot.js"></script>

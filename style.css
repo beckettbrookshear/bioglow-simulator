@@ -270,3 +270,19 @@ i.sw.real { background: var(--real-c); }
 .am-try span { color: var(--dim); font-size: 13px; }
 .am-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 #amSaved:empty { display: none; }
+
+/* ---- Sync keypad ---- */
+#sync.sync-on { background: color-mix(in srgb, var(--success) 30%, var(--btn)); }
+#sync.sync-wait { background: color-mix(in srgb, var(--warning) 25%, var(--btn)); }
+.sync-dlg { background: var(--card-bg); color: var(--fg); border: 0; border-radius: 16px; box-shadow: 0 0 0 1px var(--card-shade), 0 12px 40px rgba(0,0,0,.4); padding: 20px; width: min(320px, calc(100vw - 32px)); box-sizing: border-box; }
+.sync-dlg::backdrop { background: rgba(0,0,0,.45); }
+.sync-dlg h3 { margin: 0 0 6px; font: 700 18px var(--title-font); }
+.sync-help { margin: 0 0 12px; color: var(--dim); font-size: 14px; }
+.sync-code { font: 700 28px/1 var(--mono); letter-spacing: 2px; text-align: center; padding: 12px 0; margin-bottom: 12px; background: var(--view-bg); border-radius: 10px; min-height: 28px; }
+.sync-code.empty { color: var(--dim); }
+.sync-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.sync-keys button { font-size: 22px; min-height: 52px; border-radius: 10px; }
+.sync-state { margin: 12px 0; font-size: 13px; color: var(--dim); min-height: 2.8em; }
+.sync-state.on { color: var(--success); }
+.sync-state.retry, .sync-state.connecting { color: var(--warning); }
+.sync-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }

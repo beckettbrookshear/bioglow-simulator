@@ -1264,6 +1264,7 @@ robot.log('Done at', robot.time(), 's');
   loadMatArt(() => {
     initViews();
     initEditors();
+    if (window.BioGlowSync) window.BioGlowSync.attach({ blocks, print: (msg, cls) => print(msg, sim.t, cls), store, button: $('sync') });
     initReal();
     requestAnimationFrame(frame);
     requestAnimationFrame(() => requestAnimationFrame(() => window.hideLoader && window.hideLoader()));

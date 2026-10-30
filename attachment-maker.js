@@ -1,5 +1,6 @@
-/* BIOGLOW attachment maker (Robot tab): turns two photos of an attachment the team has built, one from
- * the side and one from above, into an attachment the simulator can use. Each photo is cut out from its
+/* BIOGLOW attachment and robot makers (Robot tab): turn two photos of an attachment the team has built,
+ * one from the side and one from above, into an attachment the simulator can use; or two photos of the
+ * whole robot into the 3D model drawn for it. Each photo is cut out from its
  * plain background, scaled by the length the team types in, and turned into a grid of 4 mm cells; the
  * simulator (sim.js) makes the 3D shape from where both outlines are solid, fits it to a motor's axle and
  * swings it with that motor, so programs drive it like the real one.
@@ -97,14 +98,12 @@
     return { grid: { w: gw, h: gh, bits, rgb }, px };
   }
 
-  // ---- the Robot tab section --------------------------------------------------------------
-  function init(app) {
-    const { sim } = app;
-    const B = window.BioGlow;
-    const box = $('amMaker');
-    let editing = null, mountTouched = false, tryPos = 0;
+  // ---- the two photo panels (side and top), shared by both makers ------------------------------
+  // hooks: changed() after a photo or its cut-out changes; say(text, cls) for problems; tap(st, x, y)
+  // for a tap on a photo that isn't picking background; overlay(st, g) to draw on top; end: the label
+  // for the end that goes on the right.
+  function photoPanels(box, hooks) {
     const photos = {};
-
     function photoState(view) {
       const fig = box.querySelector('.am-photo[data-view="' + view + '"]');
       const st = { view, fig, canvas: fig.querySelector('canvas'), video: fig.querySelector('video'), src: null, thr: 60, bg: [], a: null, pickBg: false, stream: null, pivot: null };
@@ -114,7 +113,7 @@
         if (!f) return;
         const url = URL.createObjectURL(f), im = new Image();
         im.onload = () => { setSource(st, im); URL.revokeObjectURL(url); };
-        im.onerror = () => say('That file could not be opened as a picture.', 'bad');
+        im.onerror = () => hooks.say('That file could not be opened as a picture.', 'bad');
         im.src = url;
         e.target.value = '';
       });
@@ -133,7 +132,7 @@
           st.bg.push([st.a.data[i], st.a.data[i + 1], st.a.data[i + 2]]);
           st.pickBg = false; tool('bg').classList.remove('down');
           update(st);
-        } else if (view === 'side') { st.pivot = [x, y]; st.pivotAuto = false; draw(st); refresh(); }
+        } else if (hooks.tap) hooks.tap(st, x, y);
       });
       return st;
     }
@@ -159,10 +158,10 @@
     }
     async function startCamera(st) {
       stopCamera(st);
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { say('This browser cannot use the camera here. Use Choose photo instead.', 'bad'); return; }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { hooks.say('This browser cannot use the camera here. Use Choose photo instead.', 'bad'); return; }
       try {
         st.stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false });
-      } catch (e) { say('The camera could not be opened (' + (e.message || e.name) + '). Use Choose photo instead.', 'bad'); return; }
+      } catch (e) { hooks.say('The camera could not be opened (' + (e.message || e.name) + '). Use Choose photo instead.', 'bad'); return; }
       st.video.srcObject = st.stream;
       st.video.hidden = false; st.canvas.hidden = true;
       st.fig.querySelector('.am-empty').hidden = true;
@@ -184,15 +183,15 @@
     }
 
     function update(st) {
-      if (!st.src) { draw(st); refresh(); return; }
+      if (!st.src) { draw(st); hooks.changed(); return; }
       const img = st.src.getContext('2d').getImageData(0, 0, st.src.width, st.src.height);
       st.a = analyse(img, st.thr, st.bg);
       st.fig.querySelector('[data-act="thr"]').value = st.thr;
       draw(st);
-      refresh();
+      hooks.changed();
     }
 
-    // the photo with the background dimmed, the outline's box, and (side photo) the axle
+    // the photo with the background dimmed, the outline's box, and whatever the maker adds
     function draw(st) {
       const c = st.canvas, a = st.a;
       st.canvas.hidden = !st.src || !!st.stream;
@@ -211,28 +210,76 @@
         g.strokeRect(a.bbox.x0 - 1.5, a.bbox.y0 - 1.5, a.bbox.x1 - a.bbox.x0 + 3, a.bbox.y1 - a.bbox.y0 + 3);
         g.setLineDash([]);
         g.fillStyle = '#48b9c7'; g.font = 'bold 13px system-ui, sans-serif'; g.textAlign = 'right'; g.textBaseline = 'bottom';
-        g.fillText('far end →', a.w - 6, a.h - 6);
+        g.fillText(hooks.end + ' \u2192', a.w - 6, a.h - 6);
       }
-      const piv = st.view === 'side' && currentPivot();
-      if (piv && box.querySelector('#amMount').value !== 'fixed') {
-        g.strokeStyle = '#faa41a'; g.lineWidth = 2.5;
-        g.beginPath(); g.arc(piv[0], piv[1], 7, 0, Math.PI * 2); g.stroke();
-        g.beginPath(); g.moveTo(piv[0] - 11, piv[1]); g.lineTo(piv[0] + 11, piv[1]); g.moveTo(piv[0], piv[1] - 11); g.lineTo(piv[0], piv[1] + 11); g.stroke();
+      if (hooks.overlay) hooks.overlay(st, g);
+    }
+
+    // clears both panels, then loads saved photos ({ side: { src, thr, bg, ... }, top }) as they were cut out
+    function load(saved, each) {
+      for (const st of Object.values(photos)) { stopCamera(st); st.src = null; st.a = null; st.bg = []; st.pivot = null; st.pivotAuto = true; st.thr = 60; }
+      for (const [view, p] of Object.entries(saved || {})) {
+        const im = new Image();
+        im.onload = () => {
+          const st = photos[view];
+          setSource(st, im);
+          st.thr = p.thr || 60; st.bg = p.bg || [];
+          if (each) each(st, p);
+          update(st);
+        };
+        im.src = p.src;
+      }
+    }
+    // the photos for saving, as JPEGs
+    const jpeg = (st) => { try { return st.src.toDataURL('image/jpeg', 0.8); } catch (e) { return null; } };
+    const stopAll = () => { for (const st of Object.values(photos)) stopCamera(st); };
+    // the panels' warnings: nothing found, or touching the photo's edge
+    function warn() {
+      for (const st of Object.values(photos)) {
+        const edge = st.a && st.a.bbox && st.a.touchesEdge;
+        st.fig.querySelector('.am-warn').textContent = !st.src ? '' : !st.a || !st.a.bbox ? 'Nothing found: move the Cut-out slider left.' : edge ? 'It touches the edge of the photo: step back so there is background all round.' : '';
       }
     }
 
+    photos.side = photoState('side');
+    photos.top = photoState('top');
+    return { photos, draw, load, jpeg, stopAll, warn };
+  }
+  const pxPerCm = (st, len) => (st.a && st.a.bbox && len ? (st.a.bbox.x1 - st.a.bbox.x0 + 1) / len : 0);
+
+  // ---- the attachment maker ------------------------------------------------------------------
+  function init(app) {
+    const { sim } = app;
+    const B = window.BioGlow;
+    const box = $('amMaker');
+    let editing = null, mountTouched = false, tryPos = 0;
+    const panels = photoPanels(box, {
+      end: 'far end',
+      changed: () => refresh(),
+      say: (text, cls) => say(text, cls),
+      tap: (st, x, y) => { if (st.view === 'side') { st.pivot = [x, y]; st.pivotAuto = false; panels.draw(st); refresh(); } },
+      overlay: (st, g) => { // the axle
+        const piv = st.view === 'side' && currentPivot();
+        if (!piv || box.querySelector('#amMount').value === 'fixed') return;
+        g.strokeStyle = '#faa41a'; g.lineWidth = 2.5;
+        g.beginPath(); g.arc(piv[0], piv[1], 7, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.moveTo(piv[0] - 11, piv[1]); g.lineTo(piv[0] + 11, piv[1]); g.moveTo(piv[0], piv[1] - 11); g.lineTo(piv[0], piv[1] + 11); g.stroke();
+      },
+    });
+    const photos = panels.photos;
+
     // ---- sizes, fitting and the axle ----------------------------------------------------------
     const lengthCm = () => Math.max(0, Number($('amLen').value) || 0);
-    const pxPerCm = (st) => (st.a && st.a.bbox && lengthCm() ? (st.a.bbox.x1 - st.a.bbox.x0 + 1) / lengthCm() : 0);
+    const scale = (st) => pxPerCm(st, lengthCm());
     function holeForAxle() {
-      const st = photos.side, k = pxPerCm(st);
+      const st = photos.side, k = scale(st);
       if (!st.a || !k) return null;
       const ok = st.a.holes.filter((hl) => { const d = (2 * Math.sqrt(hl.area / Math.PI)) / k; return d >= 0.3 && d <= 0.9; });
       ok.sort((p, q) => p.cx - q.cx); // nearest the robot end
       return ok[0] || null;
     }
     function autoPivot() {
-      const a = photos.side.a, k = pxPerCm(photos.side);
+      const a = photos.side.a, k = scale(photos.side);
       if (!a || !a.bbox || !k) return null;
       const hole = holeForAxle();
       if (hole) return { at: [hole.cx, hole.cy], why: 'in the hole nearest the robot end' };
@@ -257,7 +304,7 @@
     }
     // which motor (or none) it most likely goes on
     function suggestMount() {
-      const ks = pxPerCm(photos.side), kt = pxPerCm(photos.top);
+      const ks = scale(photos.side), kt = scale(photos.top);
       const ports = Object.values(sim.build.ports);
       const motor = ports.includes('arm') ? 'arm' : ports.includes('spare') ? 'spare' : 'fixed';
       if (!ks || !kt) return { mount: motor, why: '' };
@@ -298,11 +345,8 @@
       $('amAxle').textContent = fixed ? 'Fixed attachments have no axle.' : photos.side.pivot && !photos.side.pivotAuto ? 'Where you tapped. Tap the side photo again to move it.' : piv ? 'Found ' + piv.why + '. Tap the side photo where the axle really goes.' : 'Tap the side photo where the motor’s axle goes in.';
       for (const id of ['amDir', 'amStart', 'amAuto', 'amTry']) $(id).disabled = fixed;
       $('amHoles').textContent = lengthCm() ? '= ' + (lengthCm() / 0.8).toFixed(1) + ' LEGO holes (studs) long' : '';
-      for (const st of Object.values(photos)) {
-        const warn = st.a && st.a.bbox && st.a.touchesEdge;
-        st.fig.querySelector('.am-warn').textContent = !st.src ? '' : !st.a || !st.a.bbox ? 'Nothing found: move the Cut-out slider left.' : warn ? 'It touches the edge of the photo: step back so there is background all round.' : '';
-      }
-      draw(photos.side);
+      panels.warn();
+      panels.draw(photos.side);
       preview();
     }
 
@@ -358,7 +402,6 @@
       editing = def || null;
       mountTouched = !!def;
       tryPos = 0; $('amTry').value = 0;
-      for (const st of Object.values(photos)) { stopCamera(st); st.src = null; st.a = null; st.bg = []; st.pivot = null; st.pivotAuto = true; st.thr = 60; }
       $('amName').value = def ? def.name : '';
       $('amLen').value = def && def.len ? def.len : '';
       $('amMount').value = def ? def.mount : 'arm';
@@ -367,31 +410,17 @@
       $('amStart').value = def && def.start !== undefined ? def.start : 0;
       box.hidden = false;
       $('amNew').hidden = true;
-      // the saved photos come back as they were cut out
-      const pending = def && def.photos ? Object.entries(def.photos) : [];
-      for (const [view, p] of pending) {
-        const im = new Image();
-        im.onload = () => {
-          const st = photos[view];
-          setSource(st, im);
-          st.thr = p.thr || 60; st.bg = p.bg || [];
-          if (view === 'side' && p.pivot) { st.pivot = p.pivot; st.pivotAuto = false; }
-          update(st);
-        };
-        im.src = p.src;
-      }
+      panels.load(def && def.photos, (st, p) => { if (st.view === 'side' && p.pivot) { st.pivot = p.pivot; st.pivotAuto = false; } });
       refresh();
       box.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     function close() {
-      for (const st of Object.values(photos)) stopCamera(st);
+      panels.stopAll();
       box.hidden = true;
       $('amNew').hidden = false;
       editing = null;
     }
 
-    photos.side = photoState('side');
-    photos.top = photoState('top');
     $('amLen').addEventListener('input', refresh);
     $('amName').addEventListener('input', () => preview());
     $('amMount').addEventListener('change', () => { mountTouched = true; refresh(); });
@@ -406,10 +435,9 @@
       if (!res.def) return;
       const def = res.def;
       def.len = lengthCm();
-      const jpeg = (st) => { try { return st.src.toDataURL('image/jpeg', 0.8); } catch (e) { return null; } };
       def.photos = {
-        side: { src: jpeg(photos.side), thr: photos.side.thr, bg: photos.side.bg, pivot: photos.side.pivotAuto ? null : photos.side.pivot },
-        top: { src: jpeg(photos.top), thr: photos.top.thr, bg: photos.top.bg },
+        side: { src: panels.jpeg(photos.side), thr: photos.side.thr, bg: photos.side.bg, pivot: photos.side.pivotAuto ? null : photos.side.pivot },
+        top: { src: panels.jpeg(photos.top), thr: photos.top.thr, bg: photos.top.bg },
       };
       app.onSave(def);
       close();
@@ -417,5 +445,111 @@
     return { open, close };
   }
 
-  window.BioGlowMaker = { init, analyse, toGrid, CELL };
+  // ---- the robot maker ----------------------------------------------------------------------
+  // Two photos of the whole robot (without its attachment), front on the right. The length the team
+  // types in scales both; the width and height are measured from them. app.onSave(def) gets the model.
+  function initRobot(app) {
+    const B = window.BioGlow;
+    const box = $('rmMaker');
+    let editing = null;
+    const panels = photoPanels(box, { end: 'front', changed: () => refresh(), say: (text, cls) => say(text, cls) });
+    const photos = panels.photos;
+    const lengthCm = () => Math.max(0, Number($('rmLen').value) || 0);
+
+    // the robot as it would be saved, or a reason it can't be yet
+    function build() {
+      const s = photos.side, t = photos.top, len = lengthCm();
+      if (!s.a || !s.a.bbox) return { why: 'Add the photo from the side.' };
+      if (!t.a || !t.a.bbox) return { why: 'Add the photo from above.' };
+      if (!(len >= 8 && len <= 40)) return { why: 'Type in how long the robot is, between 8 and 40 cm.' };
+      const cells = Math.max(2, Math.round(len / CELL));
+      const sg = toGrid(s.a, cells), tg = toGrid(t.a, cells);
+      const size = { length: +(cells * CELL).toFixed(1), width: +(tg.grid.h * CELL).toFixed(1), height: +(sg.grid.h * CELL).toFixed(1) };
+      if (size.width > 40 || size.height > 45) return { why: 'At that length it would be ' + size.width.toFixed(0) + ' cm wide and ' + size.height.toFixed(0) + ' cm tall: check the length.' };
+      const def = {
+        name: ($('rmName').value || '').trim() || 'My robot',
+        cell: CELL, side: sg.grid, top: tg.grid, pivot: [cells / 2, sg.grid.h], size,
+      };
+      if (!B.attachmentVoxels(def).count) return { why: 'The two outlines don\u2019t overlap anywhere: check both photos have the front on the right.' };
+      return { def, why: '' };
+    }
+
+    // the size it measures, and what the simulator can use (its robot body is a box within BUILD_LIMITS)
+    function sizeNote(size) {
+      const L = B.BUILD_LIMITS, out = [];
+      const check = (v, [lo, hi], what) => { if (v < lo || v > hi) out.push(what + ' ' + (v < lo ? 'at least ' + lo : 'at most ' + hi) + ' cm'); };
+      check(size.length, L.length, 'long'); check(size.width, L.width, 'wide'); check(size.height, L.height, 'tall');
+      return size.length.toFixed(1) + ' \u00d7 ' + size.width.toFixed(1) + ' \u00d7 ' + size.height.toFixed(1) + ' cm (length \u00d7 width \u00d7 height)' +
+        (out.length ? '. The simulator\u2019s robot can only be ' + out.join(', ') + ', so it bumps into things as if it were that size.' : '');
+    }
+
+    function refresh() {
+      panels.warn();
+      $('rmHoles').textContent = lengthCm() ? '= ' + (lengthCm() / 0.8).toFixed(1) + ' LEGO holes (studs) long' : '';
+      const res = build();
+      $('rmSave').disabled = !res.def;
+      say(res.why, res.why ? '' : 'good', true);
+      $('rmSize').textContent = res.def ? sizeNote(res.def.size) : '';
+      // what the model looks like from the side and from above: the two cut-outs, in their colours
+      for (const [id, view] of [['rmSideView', 'side'], ['rmTopView', 'top']]) {
+        const c = $(id), W = c.clientWidth || 300, H = 150, dpr = window.devicePixelRatio || 1;
+        c.width = W * dpr; c.height = H * dpr; c.style.height = H + 'px';
+        const g = c.getContext('2d');
+        g.setTransform(dpr, 0, 0, dpr, 0, 0);
+        g.clearRect(0, 0, W, H);
+        if (!res.def) continue;
+        const m = res.def[view], k = Math.min((W - 20) / m.w, (H - 20) / m.h), x0 = (W - m.w * k) / 2, y0 = (H - m.h * k) / 2;
+        for (let j = 0; j < m.h; j++) for (let i = 0; i < m.w; i++) {
+          if (m.bits.charCodeAt(j * m.w + i) !== 49) continue;
+          g.fillStyle = '#' + m.rgb.substr((j * m.w + i) * 6, 6);
+          g.fillRect(x0 + i * k, y0 + j * k, Math.ceil(k), Math.ceil(k));
+        }
+        if (view === 'side') { // the mat
+          g.strokeStyle = getComputedStyle(document.body).getPropertyValue('--dim').trim(); g.lineWidth = 1;
+          g.beginPath(); g.moveTo(0, y0 + m.h * k + 0.5); g.lineTo(W, y0 + m.h * k + 0.5); g.stroke();
+        }
+      }
+    }
+
+    function say(text, cls, quiet) {
+      const n = $('rmMsg');
+      n.textContent = text; n.className = 'rr-step ' + (cls || ''); n.hidden = !text || (quiet && cls === 'good');
+    }
+
+    function open(def) {
+      editing = def || null;
+      $('rmName').value = def ? def.name : '';
+      $('rmLen').value = def && def.size ? def.size.length : '';
+      panels.load(def && def.photos);
+      box.hidden = false;
+      $('rmNew').hidden = true;
+      refresh();
+      box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    function close() {
+      panels.stopAll();
+      box.hidden = true;
+      $('rmNew').hidden = false;
+      editing = null;
+    }
+
+    $('rmLen').addEventListener('input', refresh);
+    $('rmName').addEventListener('input', refresh);
+    $('rmCancel').onclick = close;
+    $('rmNew').onclick = () => open(null);
+    $('rmSave').onclick = () => {
+      const res = build();
+      if (!res.def) return;
+      const def = res.def;
+      def.photos = {
+        side: { src: panels.jpeg(photos.side), thr: photos.side.thr, bg: photos.side.bg },
+        top: { src: panels.jpeg(photos.top), thr: photos.top.thr, bg: photos.top.bg },
+      };
+      app.onSave(def);
+      close();
+    };
+    return { open, close };
+  }
+
+  window.BioGlowMaker = { init, initRobot, analyse, toGrid, CELL };
 })();

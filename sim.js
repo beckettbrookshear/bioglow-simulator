@@ -72,6 +72,14 @@
     return ATTACHMENTS[id];
   }
   function unregisterAttachment(id) { if (ATTACHMENTS[id] && ATTACHMENTS[id].custom) delete ATTACHMENTS[id]; }
+  // The robot itself made from photos (Robot tab), drawn in place of the standard parts when a build has
+  // `look: true`. Same grids as a photo attachment, with the pivot at the bottom of the middle so the
+  // cubes sit on the mat around the robot's centre. Only one is kept.
+  let robotLook = null;
+  function setRobotLook(def) {
+    robotLook = def && attachmentVoxels(def).count ? { ...def, rev: ++attachmentRev } : null;
+    return robotLook;
+  }
   // What each hub port is plugged into. Inside the simulator each job keeps one letter (A and B the
   // left and right drive motors, C the attachment motor, D the spare motor, E the color sensor, F the
   // distance sensor, G a second color sensor). A build's `ports` say which hub port each job is wired
@@ -124,7 +132,7 @@
     }
     return out;
   }
-  const BUILD_DEFAULT = { model: 'custom', wheel: 56, motor: 'medium', track: 11.2, length: 18, width: 14, height: 11, mass: 0.95, sensorAhead: 8, sensorSide: 0, attachment: 'basket', ports: WIRING_DEFAULT };
+  const BUILD_DEFAULT = { model: 'custom', look: false, wheel: 56, motor: 'medium', track: 11.2, length: 18, width: 14, height: 11, mass: 0.95, sensorAhead: 8, sensorSide: 0, attachment: 'basket', ports: WIRING_DEFAULT };
   const BUILD_LIMITS = { track: [8, 18], length: [12, 28], width: [10, 22], height: [6, 40], mass: [0.5, 1.6], sensorAhead: [-6, 14], sensorSide: [-6, 6] };
   // Keeps a build within what can be assembled from the kit (the wheels have to fit beside the body).
   function normalizeBuild(b) {
@@ -144,6 +152,7 @@
     out.sensorAhead = Math.min(out.sensorAhead, out.length / 2 + 1);
     out.sensorSide = clamp(out.sensorSide, -out.width / 2 + 1, out.width / 2 - 1);
     out.ports = normalizeWiring(out.ports);
+    out.look = !!(out.look && robotLook);
     // two color sensors sit either side of the middle (the second mirrors the first)
     if (Object.values(out.ports).includes('color2') && Math.abs(out.sensorSide) < 1) out.sensorSide = -2.4;
     return out;
@@ -157,7 +166,7 @@
     }
     return used.has('left') && used.has('right') ? out : { ...WIRING_DEFAULT };
   }
-  const buildKeyOf = (b) => JSON.stringify(b) + (ATTACHMENTS[b.attachment].rev || '');
+  const buildKeyOf = (b) => JSON.stringify(b) + (ATTACHMENTS[b.attachment].rev || '') + (b.look && robotLook ? ':' + robotLook.rev : '');
   function applyBuild(b) {
     const w = WHEELS[b.wheel], m = MOTORS[b.motor], a = ATTACHMENTS[b.attachment];
     Object.assign(WHEEL, { diameter: w.diameter, width: w.width, maxDegPerSec: m.maxDegPerSec });
@@ -166,6 +175,7 @@
       attachment: b.attachment, basket: a.reach, maxSpeed: (WHEEL.maxDegPerSec / 360) * Math.PI * WHEEL.diameter,
     });
     ROBOT.model = b.model;
+    ROBOT.look = b.look ? robotLook : null;
     ROBOT.ports = b.ports;
     ROBOT.sensorSide2 = -b.sensorSide;
     ROBOT.color2 = Object.values(b.ports).includes('color2');
@@ -2404,7 +2414,7 @@
     FIELD, ROBOT, PHYS, VARIATION, MAT, DRONE, DOCK_MODELS, ROBOT_MODELS, JOBS, HUB_PORTS, WIRING_DEFAULT, FAULTS_DEFAULT, FAULT_LIMITS, DT, MATCH_TIME, START, PORTS, ARM, HUB_IMAGES, SOUNDS, Sim,
     WHEELS, MOTORS, ATTACHMENTS, BUILD_DEFAULT, BUILD_LIMITS, normalizeBuild, ACCEL_SETTINGS, TOKEN_POINTS, MAX_HEIGHT,
     robotPoly, grabAction, releaseAction, classifyRGB,
-    registerAttachment, unregisterAttachment, attachmentVoxels, swingPoints, mountSpot, swingOf: customSwing,
+    registerAttachment, unregisterAttachment, setRobotLook, getRobotLook: () => robotLook, attachmentVoxels, swingPoints, mountSpot, swingOf: customSwing,
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.BioGlow = api;

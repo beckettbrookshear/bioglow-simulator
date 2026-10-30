@@ -382,6 +382,9 @@ robot.log('Done at', robot.time(), 's');
   // attachments made from photos are kept in this browser
   let photoAttachments = [];
   try { photoAttachments = JSON.parse(store.get('bioglow-attachments') || '[]').filter((d) => window.BioGlow.registerAttachment(d)); } catch (e) { photoAttachments = []; }
+  // the robot made from photos is kept in this browser too (before the saved build is loaded, which may use it)
+  let robotLook = null;
+  try { robotLook = JSON.parse(store.get('bioglow-robot-look') || 'null'); if (robotLook && !window.BioGlow.setRobotLook(robotLook)) robotLook = null; } catch (e) { robotLook = null; }
   function fillAttachments() { fillSelect($('bAttach'), Object.entries(ATTACHMENTS).map(([k, a]) => [k, a.label + (a.custom ? ' (from photos)' : '')])); }
   fillAttachments();
   // the robot can be picked on the Robot tab, on Setup and beside the field; they all drive the Robot tab's menu
@@ -446,6 +449,7 @@ robot.log('Done at', robot.time(), 's');
     for (const [id, key] of Object.entries(builderFields)) $(id).value = String(b[key]);
     $('bAttachAbout').textContent = ATTACHMENTS[b.attachment].about;
     if (typeof showPhotoAttachments === 'function') showPhotoAttachments();
+    if (typeof showRobotLook === 'function') showRobotLook();
     $('bModelAbout').textContent = ROBOT_MODELS[b.model].about;
     for (const sel of document.querySelectorAll('.model-pick')) sel.value = b.model;
     const fixed = !!ROBOT_MODELS[b.model].build;
@@ -480,6 +484,7 @@ robot.log('Done at', robot.time(), 's');
     for (const [id, key] of Object.entries(builderFields)) b[key] = ['model', 'wheel', 'motor', 'attachment'].includes(key) ? $(id).value : Number($(id).value);
     b.wheel = Number(b.wheel);
     b.ports = sim.build.ports; // leaving an official robot, your own starts from its measurements and wiring
+    b.look = b.model === sim.build.model && sim.build.look; // picking another robot shows that robot, not your photos
     if (b.model !== sim.build.model && ROBOT_MODELS[b.model].build) delete b.motor; // a newly picked robot starts with its own motors
     return b;
   }
@@ -595,6 +600,58 @@ robot.log('Done at', robot.time(), 's');
       fillAttachments();
       useAttachment(def.id);
       print('Fitted "' + def.name + '" to the robot' + (def.mount === 'fixed' ? '.' : ': turn motor ' + (def.mount === 'spare' ? 'D' : 'C') + ' in your program to move it.'), sim.t);
+    },
+  }) : null;
+
+  // ---- the robot from photos (Robot tab) ------------------------------------------------------
+  function saveRobotLook() {
+    const full = JSON.stringify(robotLook);
+    store.set('bioglow-robot-look', full);
+    if (store.get('bioglow-robot-look') === full) return;
+    store.set('bioglow-robot-look', JSON.stringify({ ...robotLook, photos: undefined }));
+    print('There is no room left in this browser for the robot\u2019s photos, so only its shape is kept.', sim.t, 'err');
+  }
+  // Using the photos makes it your own driving base (keeping the wheels, motors and wiring) at the size
+  // measured from them.
+  function useRobotLook(on) {
+    let b = { ...sim.build, look: on };
+    if (on) b = { ...b, model: 'custom', length: robotLook.size.length, width: robotLook.size.width, height: Math.round(robotLook.size.height) };
+    sim.setBuild(b);
+    store.set('bioglow-build', JSON.stringify(sim.build));
+    showBuild();
+  }
+  function showRobotLook() {
+    const list = $('rmSaved');
+    list.innerHTML = '';
+    list.hidden = !robotLook;
+    if (!robotLook) return;
+    const row = document.createElement('div'); row.className = 'row';
+    const name = document.createElement('span'); name.textContent = robotLook.name;
+    const small = document.createElement('small'), z = robotLook.size;
+    small.textContent = z.length.toFixed(1) + ' \u00d7 ' + z.width.toFixed(1) + ' \u00d7 ' + z.height.toFixed(1) + ' cm' + (sim.build.look ? ' \u00b7 in use now' : '');
+    name.appendChild(small);
+    const btns = document.createElement('span'); btns.className = 'row-end';
+    const btn = (text, fn, cls) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; if (cls) b.className = cls; btns.appendChild(b); };
+    if (sim.build.look) btn('Use the standard look', () => useRobotLook(false));
+    else btn('Use', () => useRobotLook(true), 'suggested');
+    btn('Change', () => robotMaker.open(robotLook));
+    btn('Delete', () => {
+      if (!confirm('Delete "' + robotLook.name + '"? Its photos go too.')) return;
+      robotLook = null;
+      window.BioGlow.setRobotLook(null);
+      store.set('bioglow-robot-look', 'null');
+      useRobotLook(false);
+    });
+    row.append(name, btns);
+    list.appendChild(row);
+  }
+  const robotMaker = window.BioGlowMaker ? window.BioGlowMaker.initRobot({
+    onSave(def) {
+      if (!window.BioGlow.setRobotLook(def)) { print('That robot has no solid parts, so it was not saved.', sim.t, 'err'); return; }
+      robotLook = def;
+      saveRobotLook();
+      useRobotLook(true);
+      print('The robot now looks like your photos and is ' + sim.build.length + ' \u00d7 ' + sim.build.width + ' \u00d7 ' + sim.build.height + ' cm. Check its wheels and sensor position under Build your robot.', sim.t);
     },
   }) : null;
 
@@ -807,6 +864,22 @@ robot.log('Done at', robot.time(), 's');
 
   const ITEM_COLOURS = { keystone: '#9b59d0', seed: '#8a5a32', leaf: '#9be04a', katydid: '#2f9e44', fragment: '#f2b233', anchor: '#d62828', vine: '#7cc142', tie: '#e03131' };
 
+  // the photo robot's top grid as a little picture, one pixel per cell (made once per robot)
+  let lookCache = null;
+  function lookImage(look) {
+    if (lookCache && lookCache.rev === look.rev) return lookCache.img;
+    const m = look.top, c = document.createElement('canvas');
+    c.width = m.w; c.height = m.h;
+    const g = c.getContext('2d'), img = g.createImageData(m.w, m.h);
+    for (let i = 0; i < m.w * m.h; i++) {
+      if (m.bits.charCodeAt(i) !== 49) continue;
+      for (let k = 0; k < 3; k++) img.data[i * 4 + k] = parseInt(m.rgb.substr(i * 6 + k * 2, 2), 16);
+      img.data[i * 4 + 3] = 255;
+    }
+    g.putImageData(img, 0, 0);
+    lookCache = { rev: look.rev, img: c };
+    return c;
+  }
   function drawRobot() {
     const r = sim.robot;
     if (sim.trail.length > 1) {
@@ -832,12 +905,21 @@ robot.log('Done at', robot.time(), 's');
     } else if (ROBOT.attachment === 'pusher') {
       ctx.fillStyle = '#2b6cb0'; ctx.fillRect(-W / 2, -L / 2 - R, W, R); // pusher
     }
-    ctx.fillStyle = '#ffb703'; ctx.strokeStyle = '#7a5500'; ctx.lineWidth = 2;
-    ctx.fillRect(-W / 2, -L / 2, W, L); ctx.strokeRect(-W / 2, -L / 2, W, L);
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-wx - ww / 2, -wl / 2, ww, wl); // wheels
-    ctx.fillRect(wx - ww / 2, -wl / 2, ww, wl);
-    ctx.fillStyle = '#d62828'; ctx.fillRect(-W / 2, -L / 2, W, 5); // front bar
+    const look = ROBOT.look && lookImage(ROBOT.look);
+    if (look) { // the robot made from photos, seen from above (the photo's front is on the right)
+      const k = ROBOT.look.cell * S;
+      ctx.save(); ctx.rotate(-Math.PI / 2);
+      ctx.drawImage(look, (-look.width / 2) * k, (-look.height / 2) * k, look.width * k, look.height * k);
+      ctx.restore();
+      ctx.strokeStyle = 'rgba(122,85,0,.6)'; ctx.lineWidth = 1; ctx.strokeRect(-W / 2, -L / 2, W, L); // what it bumps with
+    } else {
+      ctx.fillStyle = '#ffb703'; ctx.strokeStyle = '#7a5500'; ctx.lineWidth = 2;
+      ctx.fillRect(-W / 2, -L / 2, W, L); ctx.strokeRect(-W / 2, -L / 2, W, L);
+      ctx.fillStyle = '#222';
+      ctx.fillRect(-wx - ww / 2, -wl / 2, ww, wl); // wheels
+      ctx.fillRect(wx - ww / 2, -wl / 2, ww, wl);
+      ctx.fillStyle = '#d62828'; ctx.fillRect(-W / 2, -L / 2, W, 5); // front bar
+    }
     ctx.fillStyle = '#0077ff';
     ctx.beginPath(); ctx.arc(ROBOT.sensorSide * S, -ROBOT.sensorOffset * S, 4, 0, Math.PI * 2); ctx.fill(); // color sensor
     if (ROBOT.color2) { ctx.beginPath(); ctx.arc(ROBOT.sensorSide2 * S, -ROBOT.sensorOffset * S, 4, 0, Math.PI * 2); ctx.fill(); }

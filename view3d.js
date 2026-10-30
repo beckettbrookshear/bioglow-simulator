@@ -1634,6 +1634,14 @@
       robot.add(tube([[0, 2.9, -ROBOT.sensorOffset], [1.6, 4, -6], [2.9, 6.4, -1.4]], 0.18, L.black));
     }
 
+    // a robot made from photos (Robot tab) replaces the standard parts; the attachment and the sensor
+    // spots stay, and the parts left out still exist so the hub's lights keep working off screen
+    if (ROBOT.look) {
+      const keep = new Set([att, gate, ...spots]);
+      for (const ch of [...robot.children]) if (!keep.has(ch)) robot.remove(ch);
+      robot.add(voxelMesh(ROBOT.look));
+    }
+
     robot.traverse((m) => { if (m.isMesh && !spots.includes(m)) m.castShadow = true; });
     // motor C (and D) turn the gate, hook or swinging attachment
     const pose = (r) => {

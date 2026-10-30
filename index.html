@@ -223,6 +223,45 @@
         <div class="row"><span>Attachment<small id="bAttachAbout"></small></span><select id="bAttach"></select></div>
         <div class="row"><span>Standard robot<small>The SPIKE Prime driving base with the basket</small></span><button id="bDefault">Use standard robot</button></div>
       </div>
+      <h2 class="group-title">Robot from photos</h2>
+      <p class="note">Make the simulator's robot look like yours. Take its attachment off, stand it on plain, light paper and photograph it once from the side and once from straight above, with the front on the right. The simulator cuts it out, builds a 3D model from the two outlines and measures its width and height.</p>
+      <div class="boxed-list" id="rmSaved"></div>
+      <div class="am" id="rmMaker" hidden>
+        <div class="am-photos">
+        <figure class="am-photo" data-view="side">
+          <figcaption><b>1. From the side</b><small>Front on the right, wheels on the paper</small></figcaption>
+          <div class="am-stage"><canvas hidden></canvas><video playsinline muted hidden></video><p class="am-empty">No photo yet</p></div>
+          <p class="am-warn"></p>
+          <div class="am-tools">
+            <button data-act="camera">Camera</button><label class="file">Choose photo<input type="file" accept="image/*"></label><button data-act="snap" class="suggested" hidden>Take photo</button>
+            <button data-act="flip" title="Mirror it, so the front is on the right">Flip</button><button data-act="rotate" title="Turn it a quarter turn">Rotate</button>
+          </div>
+          <div class="am-tools"><label>Cut-out<input type="range" min="10" max="170" value="60" data-act="thr"></label><button data-act="bg" title="Then tap a bit of background that is still bright">Tap background</button></div>
+        </figure>
+        <figure class="am-photo" data-view="top">
+          <figcaption><b>2. From above</b><small>Front on the right, as if it were driving to the right</small></figcaption>
+          <div class="am-stage"><canvas hidden></canvas><video playsinline muted hidden></video><p class="am-empty">No photo yet</p></div>
+          <p class="am-warn"></p>
+          <div class="am-tools">
+            <button data-act="camera">Camera</button><label class="file">Choose photo<input type="file" accept="image/*"></label><button data-act="snap" class="suggested" hidden>Take photo</button>
+            <button data-act="flip" title="Mirror it, so the front is on the right">Flip</button><button data-act="rotate" title="Turn it a quarter turn">Rotate</button>
+          </div>
+          <div class="am-tools"><label>Cut-out<input type="range" min="10" max="170" value="60" data-act="thr"></label><button data-act="bg" title="Then tap a bit of background that is still bright">Tap background</button></div>
+        </figure>
+        </div>
+        <div class="boxed-list">
+          <div class="row"><span>Length<small>From the back of the robot to the front, without the attachment <span id="rmHoles"></span></small></span><span class="row-end"><input type="number" id="rmLen" min="8" max="40" step="0.4" placeholder="cm"> cm</span></div>
+          <div class="row"><span>Size<small id="rmSize"></small></span></div>
+          <div class="row"><span>Name</span><input type="text" id="rmName" maxlength="30" placeholder="My robot"></div>
+        </div>
+        <div class="boxed-list am-preview">
+          <div><small>From the side</small><canvas id="rmSideView"></canvas></div>
+          <div><small>From above</small><canvas id="rmTopView"></canvas></div>
+        </div>
+        <p class="rr-step" id="rmMsg" hidden></p>
+        <div class="am-actions"><button id="rmCancel">Cancel</button><button id="rmSave" class="suggested" disabled>Save and use for the robot</button></div>
+      </div>
+      <div class="am-actions"><button id="rmNew">Make the robot from photos</button></div>
       <h2 class="group-title">Attachments from photos</h2>
       <p class="note">Built an attachment? Photograph it on plain, light paper, once from the side and once from above, with the end that sticks out away from the robot on the right. The simulator cuts it out, builds a 3D model from the two outlines and fits it to an attachment motor, so your program drives it like the real one. It pushes what it bumps into and can lift handles (M09, M12, M15).</p>
       <div class="boxed-list" id="amSaved"></div>
@@ -351,6 +390,16 @@ robot.holding()  robot.log(...)</pre>
           it is lifted far enough.</p>
         <p><b>Knock off</b>: the seeds on the seed pod (M02) and the seed hanging on the research tree (M09) fall when the robot hits them.</p>
         <p>The log says why when a part needs a different move, for example a push on a handle that has to be pulled.</p>
+      </details>
+
+      <details>
+        <summary>Robot from photos</summary>
+        <p>On the Robot tab, <b>Make the robot from photos</b> makes the simulator's robot look like yours. Take the attachment off, stand the robot on plain,
+          light paper and take two photos, one from the side and one from straight above, with the front on the right. Type in how long it is; the
+          simulator measures its width and height from the photos and builds a 3D model from the two outlines.</p>
+        <p>Saving makes it <b>Your own driving base</b> at that size, keeping your wheels, motors and wiring, so check those and the color sensor's
+          position under <b>Build your robot</b>. The photos only change how it looks and how big it is: it still bumps into things as a box, turns
+          around the middle of its wheels and drives with the wheels you chose. <b>Use the standard look</b> goes back to the drawn robot.</p>
       </details>
 
       <details>

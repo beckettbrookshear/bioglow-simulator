@@ -8,7 +8,7 @@ You can also download this repo and open `index.html` in a browser. No server or
 
 ## Mission models and photo attachments
 
-Each mission model's moving part works like the real one: some are pushed (the ant into its nest, M06), some pulled with a hook from behind (the mycelium, M07; the root cover, M11; the compost hatch, M15), some lifted from underneath by a motor-driven attachment (M09 platform, M12 cane, M15 canopy), and seeds are knocked off (M02, M09). The **Lift arm** attachment does the lifting. On the Robot tab, **Make an attachment from photos** turns two photos of your own attachment (from the side and from above) into a 3D model fitted to an attachment motor, so programs drive it by turning that motor. It's built from the two outlines and kept in your browser.
+Each mission model's moving part works like the real one: some are pushed (the ant into its nest, M06), some pulled with a hook from behind (the mycelium, M07; the root cover, M11; the compost hatch, M15), some lifted from underneath by a motor-driven attachment (M09 platform, M12 cane, M15 canopy), and seeds are knocked off (M02, M09). The **Lift arm** attachment does the lifting. On the Robot tab, **Make an attachment from photos** turns two photos of your own attachment (from the side and from above) into a 3D model fitted to an attachment motor, so programs drive it by turning that motor. It's built from the two outlines and kept in your browser. **Make the robot from photos** does the same for the whole robot: it sets the robot's size from the photos and draws your robot in place of the standard one.
 
 ## Real robot
 

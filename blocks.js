@@ -508,21 +508,34 @@
     return code;
   }
 
-  function inject(el, onChange) {
-    const theme = Blockly.Theme.defineTheme('bioglow-spike', {
-      base: Blockly.Themes.Zelos || Blockly.Themes.Classic,
-      blockStyles: {
-        variable_blocks: { colourPrimary: C.variables, colourSecondary: '#ec7b0e', colourTertiary: '#db6e00' },
-        variable_dynamic_blocks: { colourPrimary: C.variables, colourSecondary: '#ec7b0e', colourTertiary: '#db6e00' },
-        procedure_blocks: { colourPrimary: C.myblocks, colourSecondary: '#ff4d6a', colourTertiary: '#ff3355' },
-      },
-      componentStyles: {
-        workspaceBackgroundColour: '#f4f5f7', toolboxBackgroundColour: '#ffffff', toolboxForegroundColour: '#3d3d3d',
-        flyoutBackgroundColour: '#e9eef2', flyoutForegroundColour: '#3d3d3d', flyoutOpacity: 1,
-        scrollbarColour: '#cfd6dd', insertionMarkerColour: '#000000', cursorColour: '#0090f5',
-      },
-      fontStyle: { family: 'system-ui, sans-serif', weight: '600', size: 11 },
-    });
+  function inject(el, onChange, look) {
+    // The workspace follows the Look setting (Setup tab); the blocks keep their SPIKE colours.
+    const SURFACES = {
+      light: ['#f4f5f7', '#ffffff', '#3d3d3d', '#e9eef2', '#cfd6dd', '#000000'],
+      dark: ['#232221', '#2b2a28', '#ebe7e2', '#33312f', '#55524e', '#ffffff'],
+      'contrast-dark': ['#000000', '#000000', '#ffffff', '#1a1a1a', '#ffffff', '#ffffff'],
+      'contrast-light': ['#ffffff', '#ffffff', '#000000', '#eeeeee', '#000000', '#000000'],
+    };
+    const themes = {};
+    const themeFor = (look) => themes[look] || (themes[look] = make(look));
+    const make = (look) => {
+      const [bg, box, boxFg, fly, bar, mark] = SURFACES[look] || SURFACES.light;
+      return Blockly.Theme.defineTheme('bioglow-spike-' + look, {
+        base: Blockly.Themes.Zelos || Blockly.Themes.Classic,
+        blockStyles: {
+          variable_blocks: { colourPrimary: C.variables, colourSecondary: '#ec7b0e', colourTertiary: '#db6e00' },
+          variable_dynamic_blocks: { colourPrimary: C.variables, colourSecondary: '#ec7b0e', colourTertiary: '#db6e00' },
+          procedure_blocks: { colourPrimary: C.myblocks, colourSecondary: '#ff4d6a', colourTertiary: '#ff3355' },
+        },
+        componentStyles: {
+          workspaceBackgroundColour: bg, toolboxBackgroundColour: box, toolboxForegroundColour: boxFg,
+          flyoutBackgroundColour: fly, flyoutForegroundColour: boxFg, flyoutOpacity: 1,
+          scrollbarColour: bar, insertionMarkerColour: mark, cursorColour: '#0090f5',
+        },
+        fontStyle: { family: 'system-ui, sans-serif', weight: '600', size: 11 },
+      });
+    };
+    const theme = themeFor(look);
     const ws = Blockly.inject(el, {
       toolbox: TOOLBOX, renderer: 'zelos', theme, trashcan: true, sounds: false,
       zoom: { controls: true, wheel: true, startScale: 0.65, maxScale: 2, minScale: 0.3 },
@@ -546,6 +559,7 @@
       load(json) { Blockly.serialization.workspaces.load(json, ws); },
       loadExample() { Blockly.serialization.workspaces.load(EXAMPLE, ws); },
       loadEmpty() { Blockly.serialization.workspaces.load(EMPTY, ws); },
+      setLook(l) { ws.setTheme(themeFor(l)); },
     };
   }
 

@@ -8,6 +8,41 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700&family=Fira+Mono:wght@400;500&family=Roboto+Slab:wght@500;700&display=swap">
   <link rel="stylesheet" href="style.css">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <script>
+  // The Look setting (Setup tab): colours and highlight colour, applied before the page draws so it never flashes.
+  window.BioGlowLook = (function () {
+    const ACCENTS = { // [accent, text on it, accent as text] on dark, then on light
+      teal: [['#48b9c7', '#102a2e', '#63d0df'], ['#2c9fb0', '#ffffff', '#20808e']],
+      orange: [['#fb923c', '#2a1400', '#fdba74'], ['#e8590c', '#ffffff', '#c2410c']],
+      purple: [['#a78bfa', '#1e1238', '#c4b5fd'], ['#7048e8', '#ffffff', '#5b34d6']],
+      green: [['#73c48f', '#0f2a18', '#8fd6a6'], ['#2e8b57', '#ffffff', '#237046']],
+      pink: [['#f472b6', '#3a0a22', '#f9a8d4'], ['#d6336c', '#ffffff', '#b0234f']],
+      blue: [['#60a5fa', '#0b1f3a', '#93c5fd'], ['#1c7ed6', '#ffffff', '#1864ab']],
+    };
+    const get = (k, d) => { try { return localStorage.getItem(k) || d; } catch (e) { return d; } };
+    const light = () => { try { return matchMedia('(prefers-color-scheme: light)').matches; } catch (e) { return false; } };
+    let theme = get('bioglow-theme', 'auto'), accent = get('bioglow-accent', 'teal');
+    const listeners = [];
+    function apply() {
+      const t = theme === 'auto' ? (light() ? 'light' : 'dark') : theme;
+      const root = document.documentElement, a = (ACCENTS[accent] || ACCENTS.teal)[/light/.test(t) ? 1 : 0];
+      root.dataset.theme = t;
+      root.style.setProperty('--accent', a[0]); root.style.setProperty('--accent-fg', a[1]); root.style.setProperty('--accent-text', a[2]);
+      for (const f of listeners) f(t);
+    }
+    function set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } }
+    try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (theme === 'auto') apply(); }); } catch (e) { /* old browser */ }
+    apply();
+    return {
+      ACCENTS,
+      get theme() { return theme; }, get accent() { return accent; },
+      get current() { return document.documentElement.dataset.theme; },
+      setTheme(v) { theme = v; set('bioglow-theme', v); apply(); },
+      setAccent(v) { accent = v; set('bioglow-accent', v); apply(); },
+      onChange(f) { listeners.push(f); },
+    };
+  })();
+  </script>
 </head>
 <body>
   <div id="loader" role="status" aria-label="Loading">
@@ -317,6 +352,12 @@
     </section>
 
     <section class="pane pane-page pane-setup">
+      <h2 class="group-title">Look</h2>
+      <div class="boxed-list" id="lookSetup">
+        <div class="row"><span>Colours<small>High contrast is easiest to read on a projector or in bright light</small></span>
+          <select id="lookTheme"><option value="auto">Match my computer</option><option value="dark">Dark</option><option value="light">Light</option><option value="contrast-dark">White on black (high contrast)</option><option value="contrast-light">Black on white (high contrast)</option></select></div>
+        <div class="row"><span>Highlight colour<small>Buttons and tabs that are switched on</small></span><span class="row-end" id="lookAccent"></span></div>
+      </div>
       <h2 class="group-title">Launch</h2>
       <div class="boxed-list" id="launchSetup">
         <div class="row"><span>Robot<small>Which robot you are using; set its size, sensors and wiring on the Robot tab</small></span><select id="sModel" class="model-pick"></select></div>
@@ -394,6 +435,13 @@ robot.holding()  robot.log(...)</pre>
           it is lifted far enough.</p>
         <p><b>Knock off</b>: the seeds on the seed pod (M02) and the seed hanging on the research tree (M09) fall when the robot hits them.</p>
         <p>The log says why when a part needs a different move, for example a push on a handle that has to be pulled.</p>
+      </details>
+
+      <details>
+        <summary>Colours</summary>
+        <p>On the Setup tab, <b>Look</b> picks the colours: match your computer, dark, light, white on black or black on white. The two high-contrast
+          choices are easiest to read on a projector. You can also pick the highlight colour for buttons and tabs. The field and the blocks keep their real colours.
+          The choice is kept in this browser.</p>
       </details>
 
       <details>

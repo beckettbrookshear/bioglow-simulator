@@ -191,7 +191,8 @@ robot.log('Done at', robot.time(), 's');
         blocks = window.BioGlowBlocks.inject($('blockly'), () => {
           store.set('bioglow3-blocks', JSON.stringify(blocks.save()));
           showGenerated();
-        });
+        }, window.BioGlowLook.current);
+        window.BioGlowLook.onChange((look) => blocks.setLook(look));
         // compare programs without Blockly's random ids, where the stacks sit, or comment bubbles
         const shape = (json) => JSON.stringify(json, (k, v) => (['id', 'x', 'y', 'icons'].includes(k) ? undefined : v));
         blocks.loadExample();
@@ -655,6 +656,21 @@ robot.log('Done at', robot.time(), 's');
     },
   }) : null;
 
+  // ---- look: colours and highlight colour (Setup tab; applied by the script in <head>) ----
+  const Look = window.BioGlowLook;
+  $('lookTheme').value = Look.theme;
+  $('lookTheme').addEventListener('change', (e) => Look.setTheme(e.target.value));
+  for (const [name, [dark]] of Object.entries(Look.ACCENTS)) {
+    const b = document.createElement('button');
+    b.className = 'swatch'; b.dataset.accent = name; b.title = name[0].toUpperCase() + name.slice(1);
+    b.setAttribute('aria-label', b.title); b.style.setProperty('--swatch', dark[0]);
+    b.onclick = () => Look.setAccent(name);
+    $('lookAccent').append(b);
+  }
+  const showAccent = () => { for (const b of $('lookAccent').children) b.setAttribute('aria-pressed', b.dataset.accent === Look.accent); };
+  showAccent();
+  Look.onChange(showAccent);
+
   // ---- launch position and battery (Setup tab) ---------------------------------------
   const corner = (area) => (area === 'right' ? { x: MAT.launch[1].cx, sign: -1 } : { x: MAT.launch[0].cx, sign: 1 });
   function poseFromForm() {
@@ -1034,7 +1050,7 @@ robot.log('Done at', robot.time(), 's');
   const WHEEL_BLUE = '#3b8bf0', GROUND_GREEN = '#2fb56a', GYRO_ORANGE = '#f59e0b';
   const liveEl = $('live'), liveStats = $('liveStats'), lctx = liveEl.getContext('2d');
   let liveTheme = null, liveStatsAt = 0;
-  try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { liveTheme = null; }); } catch (e) { /* old browser */ }
+  window.BioGlowLook.onChange(() => { liveTheme = null; });
   const portOf = (job) => HUB_PORTS.find((p) => sim.build.ports[p] === job);
   let insp = null, inspFailed = false;
   function drawLive(now) {

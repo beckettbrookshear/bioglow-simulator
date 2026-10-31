@@ -1,5 +1,5 @@
 /* Pop!_OS look: warm greys, Pop teal accent with orange highlights, Fira Sans with Roboto Slab titles,
- * rounded "pill" controls. Dark by default like Pop's desktop; follows a light system setting too. */
+ * rounded "pill" controls. Dark by default like Pop's desktop; the Look setting picks light, dark or high contrast. */
 :root {
   --window-bg: #2b2a28; --view-bg: #232221; --headerbar-bg: #1f1e1d; --headerbar-shade: rgba(0, 0, 0, .45);
   --sidebar-bg: #33312f; --card-bg: #3a3836; --card-shade: rgba(0, 0, 0, .35); --border: rgba(255, 255, 255, .08);
@@ -9,17 +9,35 @@
   --title-font: 'Roboto Slab', 'Fira Sans', serif;
   color-scheme: dark;
 }
-@media (prefers-color-scheme: light) {
-  :root {
-    --window-bg: #f2f0ee; --view-bg: #ffffff; --headerbar-bg: #333130; --headerbar-shade: rgba(0, 0, 0, .12);
-    --sidebar-bg: #e9e6e3; --card-bg: #ffffff; --card-shade: rgba(0, 0, 0, .09); --border: rgba(0, 0, 0, .1);
-    --fg: #3a3633; --dim: #6f6964; --btn: rgba(0, 0, 0, .07); --btn-hover: rgba(0, 0, 0, .11); --btn-active: rgba(0, 0, 0, .2);
-    --accent: #2c9fb0; --accent-fg: #ffffff; --accent-text: #20808e; --success: #2e8b57; --error: #c9372c;
-    color-scheme: light;
-  }
-  /* classic Pop!_OS: light window, dark header bar */
-  .headerbar { color: #ebe7e2; --btn: rgba(255, 255, 255, .1); --btn-hover: rgba(255, 255, 255, .16); --btn-active: rgba(255, 255, 255, .26); --dim: #aaa49d; --headerbar-shade: rgba(0, 0, 0, .4); }
+/* The Look setting on the Setup tab picks the colours: app.js sets data-theme on <html> to light, dark,
+ * contrast-dark (white on black) or contrast-light (black on white); "Match my computer" picks light or dark. */
+:root[data-theme=light], :root[data-theme=contrast-light] {
+  --window-bg: #f2f0ee; --view-bg: #ffffff; --headerbar-bg: #333130; --headerbar-shade: rgba(0, 0, 0, .12);
+  --sidebar-bg: #e9e6e3; --card-bg: #ffffff; --card-shade: rgba(0, 0, 0, .09); --border: rgba(0, 0, 0, .1);
+  --fg: #3a3633; --dim: #6f6964; --btn: rgba(0, 0, 0, .07); --btn-hover: rgba(0, 0, 0, .11); --btn-active: rgba(0, 0, 0, .2);
+  --accent: #2c9fb0; --accent-fg: #ffffff; --accent-text: #20808e; --success: #2e8b57; --error: #c9372c;
+  --sim-c: #e8590c; --real-c: #7048e8;
+  color-scheme: light;
 }
+/* classic Pop!_OS: light window, dark header bar */
+[data-theme=light] .headerbar, [data-theme=contrast-light] .headerbar { color: #ebe7e2; --btn: rgba(255, 255, 255, .1); --btn-hover: rgba(255, 255, 255, .16); --btn-active: rgba(255, 255, 255, .26); --dim: #aaa49d; --headerbar-shade: rgba(0, 0, 0, .4); }
+/* high contrast: pure white on black, or pure black on white, with outlined cards and buttons */
+:root[data-theme=contrast-dark] {
+  --window-bg: #000; --view-bg: #000; --headerbar-bg: #000; --headerbar-shade: #fff;
+  --sidebar-bg: #000; --card-bg: #000; --card-shade: #fff; --border: rgba(255, 255, 255, .7);
+  --fg: #fff; --dim: #e6e6e6; --btn: rgba(255, 255, 255, .16); --btn-hover: rgba(255, 255, 255, .3); --btn-active: rgba(255, 255, 255, .45);
+  --success: #7dffa8; --error: #ff8a7a; --warning: #ffd23f; --highlight: #ffd23f;
+}
+:root[data-theme=contrast-light] {
+  --window-bg: #fff; --view-bg: #fff; --headerbar-bg: #000; --headerbar-shade: #000;
+  --sidebar-bg: #fff; --card-bg: #fff; --card-shade: #000; --border: rgba(0, 0, 0, .7);
+  --fg: #000; --dim: #222; --btn: rgba(0, 0, 0, .1); --btn-hover: rgba(0, 0, 0, .2); --btn-active: rgba(0, 0, 0, .32);
+  --success: #146b34; --error: #a8150b; --warning: #8a4b00; --highlight: #b34700;
+}
+[data-theme=contrast-light] .headerbar { color: #fff; --dim: #fff; }
+[data-theme^=contrast] .switcher, [data-theme^=contrast] .chips > span, [data-theme^=contrast] .chips b { color: #fff; }
+[data-theme^=contrast] button, [data-theme^=contrast] select, [data-theme^=contrast] .file, [data-theme^=contrast] input { box-shadow: inset 0 0 0 1px currentColor; }
+[data-theme^=contrast] .tabs button:not(.on), [data-theme^=contrast] .views button:not(.on) { box-shadow: none; }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
@@ -223,7 +241,6 @@ code { font-family: var(--mono); color: var(--accent-text); }
 
 /* Real robot (Robot tab) */
 :root { --sim-c: #e06a22; --real-c: #8f72f0; }
-@media (prefers-color-scheme: light) { :root { --sim-c: #e8590c; --real-c: #7048e8; } }
 #rrState { font-size: 14px; font-weight: 400; color: var(--dim); }
 #rrState.good, #rrBadge { color: var(--success); }
 #rrBadge { display: block; font-size: 12px; }
@@ -303,3 +320,12 @@ i.sw.real { background: var(--real-c); }
 .sync-team { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
 .sync-team input { font: inherit; font-weight: 400; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
 .sync-team-help { font-size: 12px; }
+
+/* Look (Setup tab): highlight colour swatches */
+#lookAccent { display: inline-flex; gap: 8px; }
+.swatch { width: 30px; min-height: 30px; padding: 0; border-radius: 50%; background: var(--swatch); }
+.swatch:hover { background: var(--swatch); filter: brightness(1.12); }
+.swatch[aria-pressed=true] { box-shadow: 0 0 0 2px var(--card-bg), 0 0 0 4px var(--fg); }
+[data-theme=dark] #blockly pattern line { stroke: #3a3836; }
+[data-theme=contrast-dark] #blockly pattern line { stroke: #333; }
+[data-theme=contrast-light] #blockly pattern line { stroke: #ccc; }

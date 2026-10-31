@@ -286,3 +286,20 @@ i.sw.real { background: var(--real-c); }
 .sync-state.on { color: var(--success); }
 .sync-state.retry, .sync-state.connecting { color: var(--warning); }
 .sync-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+
+/* ---- Chat (opened from the Sync keypad) ---- */
+.chat-dlg { width: min(440px, calc(100vw - 32px)); }
+.chat-dlg input { font: inherit; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-sizing: border-box; width: 100%; }
+.chat-pass { font: 700 22px var(--mono) !important; letter-spacing: 4px; text-align: center; }
+.chat-name { margin-bottom: 8px; }
+.chat-log { height: min(320px, 50vh); overflow-y: auto; background: var(--view-bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.chat-msg { margin: 0 0 8px; overflow-wrap: anywhere; }
+.chat-msg small { color: var(--dim); font-size: 12px; }
+.chat-msg span { display: block; }
+.chat-msg.mine b { color: var(--accent-text); }
+.chat-empty { color: var(--dim); margin: 0; }
+.chat-form { display: flex; gap: 8px; }
+.chat-form input { flex: 1; min-width: 0; }
+.sync-team { display: flex; flex-direction: column; gap: 4px; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.sync-team input { font: inherit; font-weight: 400; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
+.sync-team-help { font-size: 12px; }

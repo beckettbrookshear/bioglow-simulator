@@ -47,7 +47,6 @@
   }
 
   function attach({ blocks, print, store, button }) {
-    setUpChat(store);
     if (!blocks || !button) return;
     const ws = blocks.workspace;
     let client = null, room = null, status = 'off';
@@ -307,7 +306,7 @@
       '<form class="chat-form"><input class="chat-text" maxlength="300" placeholder="Message" aria-label="Message" autocomplete="off"><button class="suggested">Send</button></form>' +
       '<p class="sync-state chat-status"></p>' +
       '<div class="sync-actions"><button type="button" data-c="leave" class="flat">Leave chat</button></div></div>';
-    host.appendChild(box);
+    host.replaceChildren(box); // replaces the "didn't load" note in index.html
     const q = (s) => box.querySelector(s);
     const lock = q('.chat-lock'), passEl = q('.chat-pass'), errEl = q('.chat-err');
     const roomEl = q('.chat-room'), nameEl = q('.chat-name'), logEl = q('.chat-log'), textEl = q('.chat-text'), statusEl = q('.chat-status');
@@ -417,6 +416,12 @@
   }
 
   window.BioGlowSync = { attach };
+
+  // The chat starts by itself, so the Chat tab works even when Sync or the block editor doesn't.
+  setUpChat({
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } },
+  });
 
   // attach() replaces this. If it never runs (the browser kept an out-of-date copy of the other
   // scripts, or the block editor didn't load), say why instead of doing nothing.

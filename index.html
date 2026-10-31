@@ -155,6 +155,7 @@
         <div class="stat stat-robot"><label for="fModel">Robot</label><select id="fModel" class="model-pick" title="Which robot you are using (more on the Robot tab)"></select><small id="rrBadge" class="good" hidden title="A real hub is connected (Robot tab, Real robot)">&#9679; real robot</small><small id="faultBadge" class="warn" hidden title="Some parts are switched off or weakened (Robot tab, Test failures)">&#9888; failures on</small></div>
         <div class="stat"><label>Time left</label><b id="timer">2:30</b></div>
         <div class="stat"><label>Score</label><b id="score">0</b></div>
+      <button data-tab="chat" title="Talk with your team" hidden><svg viewBox="0 0 16 16"><path d="M2.5 3.5h11v7.5H7L4 13.5V11H2.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Chat</span></button>
         <div class="stat"><label>Position</label><b id="pos">-</b></div>
         <div class="stat"><label>Heading</label><b id="hdg">-</b></div>
         <div class="stat"><label>Color</label><b id="col">-</b></div>
@@ -522,3 +523,8 @@ robot.holding()  robot.log(...)</pre>
   <script src="app.js"></script>
 </body>
 </html>
+
+    <section class="pane pane-page pane-chat">
+      <h2 class="group-title">Chat</h2>
+      <div id="chatBox"></div>
+    </section>

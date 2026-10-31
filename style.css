@@ -91,7 +91,7 @@ input[type=number] { cursor: text; width: 84px; background: var(--btn); }
 main { flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); min-height: 0; }
 .pane { display: none; min-height: 0; min-width: 0; overflow: auto; }
 main[data-tab=field] .pane-field, main[data-tab=code] .pane-code,
-main[data-tab=score] .pane-score, main[data-tab=robot] .pane-robot, main[data-tab=setup] .pane-setup, main[data-tab=help] .pane-help { display: flex; }
+main[data-tab=score] .pane-score, main[data-tab=robot] .pane-robot, main[data-tab=setup] .pane-setup, main[data-tab=help] .pane-help, main[data-tab=chat] .pane-chat { display: flex; }
 main[data-tab=split] { grid-template-columns: minmax(0, 1fr) minmax(420px, 1fr); }
 main[data-tab=split] .pane-field, main[data-tab=split] .pane-code { display: flex; }
 .field { flex-direction: column; gap: 12px; padding: 14px; }
@@ -304,12 +304,13 @@ i.sw.real { background: var(--real-c); }
 .sync-state.retry, .sync-state.connecting { color: var(--warning); }
 .sync-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
-/* ---- Chat (opened from the Sync keypad) ---- */
-.chat-dlg { width: min(440px, calc(100vw - 32px)); }
-.chat-dlg input { font: inherit; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-sizing: border-box; width: 100%; }
+/* ---- Chat tab (shown once the chat code is typed on the Sync keypad) ---- */
+.pane-chat > * { max-width: 720px; }
+.chat-panel { background: var(--card-bg); border-radius: 12px; padding: 16px; box-shadow: 0 0 0 1px var(--card-shade), 0 1px 3px var(--card-shade); }
+.chat-panel input { font: inherit; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-sizing: border-box; width: 100%; }
 .chat-pass { font: 700 22px var(--mono) !important; letter-spacing: 4px; text-align: center; }
 .chat-name { margin-bottom: 8px; }
-.chat-log { height: min(320px, 50vh); overflow-y: auto; background: var(--view-bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.chat-log { height: min(520px, calc(100vh - 420px)); min-height: 200px; overflow-y: auto; background: var(--view-bg); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
 .chat-msg { margin: 0 0 8px; overflow-wrap: anywhere; }
 .chat-msg small { color: var(--dim); font-size: 12px; }
 .chat-msg span { display: block; }

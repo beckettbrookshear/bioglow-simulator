@@ -239,6 +239,7 @@
     window.addEventListener('pagehide', () => { if (client && room) client.publish(room.presence, room.bye); });
 
     render();
+    if (store.get('bioglow-chat-tab')) showChatTab(store);
     const saved = store.get('bioglow-sync-code');
     if (saved && /^\d{4,8}$/.test(saved)) join(saved); // (only once a team password is saved)
   }
@@ -280,28 +281,39 @@
   }
   const CHAT_STRIKES = 3, CHAT_BAN_MS = 24 * 3600 * 1000;
 
+  // The chat lives in its own Chat tab, which stays hidden on a computer until the chat code has been
+  // typed there once. Hide this tab puts it back into hiding.
   let chat = null;
+  const chatTab = () => document.querySelector('#tabs [data-tab=chat]');
+  function showChatTab(store) {
+    const tab = chatTab(), host = document.getElementById('chatBox');
+    if (!tab || !host) return false;
+    if (!chat) { chat = makeChat(store, host); tab.addEventListener('click', () => tab.classList.remove('alert')); }
+    tab.hidden = false;
+    return true;
+  }
   function openChat(store) {
-    if (!chat) chat = makeChat(store);
+    store.set('bioglow-chat-tab', '1');
+    if (!showChatTab(store)) return;
+    chatTab().click();
     chat.show();
   }
-  function makeChat(store) {
-    const dlg = document.createElement('dialog');
-    dlg.className = 'sync-dlg chat-dlg';
-    dlg.innerHTML =
-      '<h3>Chat</h3>' +
+  function makeChat(store, host) {
+    const box = document.createElement('div');
+    box.className = 'chat-panel';
+    box.innerHTML =
       '<form class="chat-lock"><p class="sync-help">Enter the chat code.</p>' +
       '<input class="chat-pass" type="password" inputmode="numeric" autocomplete="off" aria-label="Chat code">' +
       '<p class="sync-state chat-err"></p>' +
-      '<div class="sync-actions"><button type="button" data-c="close" class="flat">Close</button><button class="suggested">Enter</button></div></form>' +
+      '<div class="sync-actions"><button type="button" data-c="hide" class="flat" title="Hide the Chat tab on this computer until the chat code is typed on the Sync keypad again">Hide this tab</button><button class="suggested">Enter</button></div></form>' +
       '<div class="chat-room" hidden>' +
       '<input class="chat-name" maxlength="20" placeholder="Your name" aria-label="Your name">' +
       '<div class="chat-log" aria-live="polite"></div>' +
       '<form class="chat-form"><input class="chat-text" maxlength="300" placeholder="Message" aria-label="Message" autocomplete="off"><button class="suggested">Send</button></form>' +
       '<p class="sync-state chat-status"></p>' +
-      '<div class="sync-actions"><button type="button" data-c="close" class="flat">Close</button></div></div>';
-    document.body.appendChild(dlg);
-    const q = (s) => dlg.querySelector(s);
+      '<div class="sync-actions"><button type="button" data-c="leave" class="flat">Leave chat</button></div></div>';
+    host.appendChild(box);
+    const q = (s) => box.querySelector(s);
     const lock = q('.chat-lock'), passEl = q('.chat-pass'), errEl = q('.chat-err');
     const roomEl = q('.chat-room'), nameEl = q('.chat-name'), logEl = q('.chat-log'), textEl = q('.chat-text'), statusEl = q('.chat-status');
     let client = null, room = null;
@@ -332,6 +344,7 @@
       for (const m of list) {
         if (!m || typeof m.id !== 'string' || typeof m.text !== 'string' || typeof m.at !== 'number') continue;
         if (badLanguage(m.text) || badLanguage(m.name || '')) muted.add(m.from);
+        else if (!msgs.has(m.id) && m.from !== me && !chatTab().classList.contains('on')) chatTab().classList.add('alert'); // new message while on another tab
         msgs.set(m.id, m);
       }
       for (const [id, m] of msgs) if (muted.has(m.from)) msgs.delete(id);
@@ -404,9 +417,13 @@
       textEl.value = '';
       send(text);
     };
-    dlg.addEventListener('click', (e) => { if (e.target.closest('[data-c=close]') || e.target === dlg) dlg.close(); });
-    dlg.addEventListener('close', close);
-    return { show() { dlg.showModal(); passEl.focus(); } };
+    q('[data-c=leave]').onclick = () => { close(); passEl.focus(); };
+    q('[data-c=hide]').onclick = () => {
+      close(); store.set('bioglow-chat-tab', '');
+      chatTab().hidden = true;
+      if (chatTab().classList.contains('on')) document.querySelector('#tabs [data-tab=help]').click();
+    };
+    return { show() { (lock.hidden ? textEl : passEl).focus(); } };
   }
 
   window.BioGlowSync = { attach };

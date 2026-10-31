@@ -330,3 +330,36 @@ i.sw.real { background: var(--real-c); }
 [data-theme=dark] #blockly pattern line { stroke: #3a3836; }
 [data-theme=contrast-dark] #blockly pattern line { stroke: #333; }
 [data-theme=contrast-light] #blockly pattern line { stroke: #ccc; }
+
+/* ---- making the controls easier to read ---- */
+button.icon.labelled { width: auto; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+@media (max-width: 1180px) { /* not enough room: icons only (each still has a tooltip) */
+  button.icon.labelled { width: 34px; padding: 0; justify-content: center; }
+  .linked > button.icon.labelled:first-child { padding-left: 4px; }
+  .linked > button.icon.labelled:last-child { padding-right: 4px; }
+  button.icon.labelled .lbl { display: none; }
+}
+#chipScoreBox { cursor: pointer; }
+#chipScoreBox:hover { background: rgba(255, 255, 255, .14); }
+.views-sep { width: 1px; margin: 4px 3px; background: rgba(255, 255, 255, .3); }
+.hub label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 2px; }
+#console:empty::before { content: 'Messages from your program show up here.'; color: #8a8a8a; }
+
+/* ---- Links: header menu and Help section ---- */
+.links-menu { position: relative; background: none; box-shadow: none; padding: 0; border-radius: 0; }
+.links-menu > summary { min-height: 34px; padding: 5px 12px; gap: 6px; font-weight: 400; border-radius: 8px; color: inherit; }
+.links-menu > summary::after { display: none; }
+.links-menu > summary::-webkit-details-marker { display: none; }
+.links-menu > summary:hover, .links-menu[open] > summary { background: var(--btn-hover); }
+.links-menu > summary svg { width: 16px; height: 16px; }
+.links-pop { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow-y: auto;
+  background: var(--card-bg); color: var(--fg); --dim: color-mix(in srgb, var(--fg) 65%, transparent);
+  border-radius: 12px; box-shadow: 0 0 0 1px var(--card-shade), 0 10px 30px rgba(0, 0, 0, .35); padding: 6px 14px 12px; text-align: left; }
+.links-menu > .links-pop:last-child { margin-bottom: 0; }
+.links-pop h4, .links-help h4 { margin: 12px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); }
+.links-pop ul, .links-help ul { list-style: none; margin: 0; padding: 0; }
+.links-pop li, .links-help li { padding: 5px 0; display: flex; flex-direction: column; }
+.links-pop a, .links-help a { color: var(--accent-text); font-weight: 500; text-decoration: none; }
+.links-pop a:hover, .links-help a:hover { text-decoration: underline; }
+.links-pop small, .links-help small { color: var(--dim); font-size: 13px; }
+@media (max-width: 700px) { .links-menu > summary span { display: none; } }

@@ -105,21 +105,43 @@
     <div class="hb-start">
       <button id="run" class="suggested pill" title="Run the program (from the start)"><svg viewBox="0 0 16 16"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg><span>Run</span></button>
       <span class="linked">
-        <button id="pickup" class="icon" title="Pick up the robot and put it back in the launch area. Free in home; outside home the referee takes a precision token."><svg viewBox="0 0 16 16"><path d="M5 8V3.6a1 1 0 0 1 2 0V7M7 7V2.6a1 1 0 0 1 2 0V7M9 7V3.4a1 1 0 0 1 2 0V8M11 8V5.4a1 1 0 0 1 2 0V9c0 3-2 5-4.6 5C6 14 5 12.6 4 11L2.6 8.6a1 1 0 0 1 1.7-1L5 8.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <button id="stop" class="icon" title="Stop the program"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg></button>
-        <button id="reset" class="icon" title="New match: put everything back and reset the clock"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 2.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <button id="end" class="icon" title="End the match now and score it"><svg viewBox="0 0 16 16"><path d="M3.5 14V2.5M3.5 3h8l-2 3 2 3h-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg></button>
+        <button id="pickup" class="icon labelled" title="Pick up the robot and put it back in the launch area. Free in home; outside home the referee takes a precision token."><svg viewBox="0 0 16 16"><path d="M5 8V3.6a1 1 0 0 1 2 0V7M7 7V2.6a1 1 0 0 1 2 0V7M9 7V3.4a1 1 0 0 1 2 0V8M11 8V5.4a1 1 0 0 1 2 0V9c0 3-2 5-4.6 5C6 14 5 12.6 4 11L2.6 8.6a1 1 0 0 1 1.7-1L5 8.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="lbl">Pick up</span></button>
+        <button id="stop" class="icon labelled" title="Stop the program"><svg viewBox="0 0 16 16"><rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor"/></svg><span class="lbl">Stop</span></button>
+        <button id="reset" class="icon labelled" title="New match: put everything back and reset the clock"><svg viewBox="0 0 16 16"><path d="M8 2.5a5.5 5.5 0 1 1-5.2 3.7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M2 2.5v4h4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="lbl">Reset</span></button>
+        <button id="end" class="icon labelled" title="End the match now and score it"><svg viewBox="0 0 16 16"><path d="M3.5 14V2.5M3.5 3h8l-2 3 2 3h-8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg><span class="lbl">End</span></button>
       </span>
       <select id="speed" class="flat" title="Simulation speed">
-        <option value="0.5">0.5&times;</option>
-        <option value="1" selected>1&times;</option>
-        <option value="2">2&times;</option>
-        <option value="5">5&times;</option>
-        <option value="10">10&times;</option>
+        <option value="0.5">Speed 0.5&times;</option>
+        <option value="1" selected>Speed 1&times;</option>
+        <option value="2">Speed 2&times;</option>
+        <option value="5">Speed 5&times;</option>
+        <option value="10">Speed 10&times;</option>
       </select>
     </div>
     <div class="hb-title"><b>BIOGLOW Robot Simulator</b><small id="status">Loading&hellip;</small></div>
     <div class="hb-end">
+      <details class="links-menu" id="linksMenu">
+        <summary class="button flat" title="Websites for SPIKE and FIRST LEGO League"><svg viewBox="0 0 16 16"><path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.3-2.3a2.6 2.6 0 0 0-3.7-3.7l-1 1M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.2 9.1a2.6 2.6 0 0 0 3.7 3.7l1-1" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Links</span></summary>
+        <div class="links-pop">
+          <h4>LEGO Education SPIKE</h4>
+          <ul>
+          <li><a href="https://spike.legoeducation.com/" target="_blank" rel="noopener">SPIKE App &#8599;</a><small>Code your real robot in the browser</small></li>
+          <li><a href="https://education.lego.com/en-us/start/spike-prime/" target="_blank" rel="noopener">SPIKE Prime: Get Started &#8599;</a><small>Set up the hub, motors and sensors</small></li>
+          <li><a href="https://education.lego.com/en-us/lessons/" target="_blank" rel="noopener">LEGO Education lessons &#8599;</a><small>Lessons and activities for SPIKE Prime</small></li>
+          <li><a href="https://education.lego.com/" target="_blank" rel="noopener">LEGO Education &#8599;</a><small>The LEGO Education website</small></li>
+          </ul>
+          <h4>FIRST LEGO League</h4>
+          <ul>
+          <li><a href="https://www.firstinspires.org/resources/library/fll/season-materials" target="_blank" rel="noopener">BIOGLOW season materials &#8599;</a><small>Robot Game rulebook, building instructions and updates</small></li>
+          <li><a href="https://www.youtube.com/watch?v=uhZZ8O1StiQ" target="_blank" rel="noopener">Robot Game missions video &#8599;</a><small>How every mission is scored</small></li>
+          <li><a href="https://www.firstlegoleague.org/" target="_blank" rel="noopener">FIRST LEGO League &#8599;</a><small>The program, events and teams</small></li>
+          </ul>
+          <h4>Learn more</h4>
+          <ul>
+          <li><a href="https://primelessons.org/" target="_blank" rel="noopener">Prime Lessons &#8599;</a><small>Free SPIKE Prime coding lessons from FLL coaches</small></li>
+          </ul>
+        </div>
+      </details>
       <button id="fullscreen" class="icon flat" title="Fullscreen"><svg viewBox="0 0 16 16"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
     </div>
   </header>
@@ -135,7 +157,7 @@
       <button data-tab="help" title="How to code the robot"><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.3" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.2 6.3a1.9 1.9 0 1 1 2.6 1.8c-.5.2-.8.6-.8 1.1v.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><circle cx="8" cy="11.6" r=".9" fill="currentColor"/></svg><span>Help</span></button>
       <button data-tab="chat" title="Talk with your team"><svg viewBox="0 0 16 16"><path d="M2.5 3.5h11v7.5H7L4 13.5V11H2.5z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg><span>Chat</span></button>
     </span>
-    <span class="chips"><span title="Time left">&#9201; <b id="chipTime">2:30</b></span><span title="Score"><b id="chipScore">0</b> pts</span></span>
+    <span class="chips"><span title="Time left">&#9201; <b id="chipTime">2:30</b></span><span id="chipScoreBox" role="button" tabindex="0" title="Score so far. Some points count from the start: equipment inspection, unused precision tokens and the M10 habitats left in place. Click to see every mission."><b id="chipScore">0</b> pts</span></span>
   </nav>
 
   <main id="main" data-tab="split">
@@ -147,6 +169,7 @@
           <button data-view="top">Top</button>
           <button data-view="follow">Follow</button>
           <button data-view="2d">2D</button>
+          <span class="views-sep" aria-hidden="true"></span>
           <button id="quality" title="Realistic: reflections, soft contact shadows, glowing LEDs, filmic colour. Fast: for older computers.">Realistic</button>
         </div>
         <div class="hint" id="hint">Drag to orbit &middot; scroll to zoom &middot; right-drag to pan</div>
@@ -165,6 +188,7 @@
         <div class="hub" id="hubBox" title="Hub: light matrix and center button">
           <div class="matrix" id="matrix"></div>
           <div class="hubside">
+            <label>Hub</label>
             <div class="hubbtns"><button id="hubleft" title="Hub Left Button">&#9664;</button><span class="centerbtn" id="centerbtn"></span><button id="hubright" title="Hub Right Button">&#9654;</button></div>
             <small id="hubPorts">A B drive &middot; C basket &middot; D spare &middot; E color &middot; F distance</small></div>
         </div>
@@ -189,6 +213,7 @@
         </span>
       </div>
       <div class="banner" id="spikeBanner" hidden></div>
+      <div class="banner" id="blocksHint" hidden><b>Getting started:</b> drag blocks from the list on the left and snap them under <b>when program starts</b>, then press <b>Run</b>. Or press <b>Load example</b> to see a finished program.</div>
 
       <div id="blockly" class="blockly"></div>
       <textarea id="code" spellcheck="false" placeholder="// Write your robot program here, for example:&#10;// await robot.drive(30);&#10;// await robot.turn(90);&#10;// Or press Load example." hidden></textarea>
@@ -385,6 +410,26 @@
 
     <section class="pane pane-page pane-help">
       <h2 class="group-title">Help</h2>
+      <details open class="links-help">
+        <summary>Useful links</summary>
+        <h4>LEGO Education SPIKE</h4>
+        <ul>
+        <li><a href="https://spike.legoeducation.com/" target="_blank" rel="noopener">SPIKE App &#8599;</a><small>Code your real robot in the browser</small></li>
+        <li><a href="https://education.lego.com/en-us/start/spike-prime/" target="_blank" rel="noopener">SPIKE Prime: Get Started &#8599;</a><small>Set up the hub, motors and sensors</small></li>
+        <li><a href="https://education.lego.com/en-us/lessons/" target="_blank" rel="noopener">LEGO Education lessons &#8599;</a><small>Lessons and activities for SPIKE Prime</small></li>
+        <li><a href="https://education.lego.com/" target="_blank" rel="noopener">LEGO Education &#8599;</a><small>The LEGO Education website</small></li>
+        </ul>
+        <h4>FIRST LEGO League</h4>
+        <ul>
+        <li><a href="https://www.firstinspires.org/resources/library/fll/season-materials" target="_blank" rel="noopener">BIOGLOW season materials &#8599;</a><small>Robot Game rulebook, building instructions and updates</small></li>
+        <li><a href="https://www.youtube.com/watch?v=uhZZ8O1StiQ" target="_blank" rel="noopener">Robot Game missions video &#8599;</a><small>How every mission is scored</small></li>
+        <li><a href="https://www.firstlegoleague.org/" target="_blank" rel="noopener">FIRST LEGO League &#8599;</a><small>The program, events and teams</small></li>
+        </ul>
+        <h4>Learn more</h4>
+        <ul>
+        <li><a href="https://primelessons.org/" target="_blank" rel="noopener">Prime Lessons &#8599;</a><small>Free SPIKE Prime coding lessons from FLL coaches</small></li>
+        </ul>
+      </details>
       <details open>
         <summary>How to code the robot</summary>
         <p><b>Blocks</b> work like the SPIKE App's word blocks. The hub is wired like a SPIKE Prime driving base:</p>

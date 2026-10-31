@@ -155,7 +155,12 @@ robot.log('Done at', robot.time(), 's');
   let mode = 'blocks';
   const genEl = $('gencode');
 
+  // the getting-started tip shows while the block program is still empty
+  function updateBlocksHint() {
+    $('blocksHint').hidden = !(blocks && mode === 'blocks' && blocks.workspace.getAllBlocks(false).length <= 1);
+  }
   function showGenerated() {
+    updateBlocksHint();
     if (!blocks) return;
     const code = blocks.getCode();
     genEl.textContent = code === null ? '// Add a "when program starts" block to begin.' : code;
@@ -168,6 +173,7 @@ robot.log('Done at', robot.time(), 's');
     codeEl.hidden = mode !== 'js';
     for (const b of document.querySelectorAll('#modes button')) b.classList.toggle('on', b.dataset.mode === mode);
     store.set('bioglow3-mode', mode);
+    updateBlocksHint();
     if (mode === 'blocks') window.dispatchEvent(new Event('resize'));
   }
 
@@ -367,7 +373,16 @@ robot.log('Done at', robot.time(), 's');
     window.dispatchEvent(new Event('resize'));
   }
   for (const b of tabBtns) b.onclick = () => setTab(b.dataset.tab);
+  $('chipScoreBox').onclick = () => setTab('score');
+  $('chipScoreBox').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setTab('score'); } };
   setTab(store.get('bioglow-tab') || 'split');
+
+  // Header bar: the Links menu closes on a click outside it, on Escape, or once a link is opened
+  const linksMenu = $('linksMenu');
+  if (linksMenu) {
+    document.addEventListener('click', (e) => { if (linksMenu.open && (!linksMenu.contains(e.target) || e.target.closest('a'))) linksMenu.open = false; });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && linksMenu.open) { linksMenu.open = false; linksMenu.querySelector('summary').focus(); } });
+  }
 
   // Header bar: fullscreen
   $('fullscreen').onclick = () => {
@@ -973,7 +988,7 @@ robot.log('Done at', robot.time(), 's');
     }
     const qBtn = $('quality');
     if (view3d && view3d.canPost) {
-      const applyQ = (q) => { view3d.setQuality(q); qBtn.textContent = q === 'realistic' ? 'Realistic' : 'Fast'; qBtn.classList.toggle('on', q === 'realistic'); };
+      const applyQ = (q) => { view3d.setQuality(q); qBtn.textContent = q === 'realistic' ? 'Quality: Realistic' : 'Quality: Fast'; qBtn.classList.toggle('on', q === 'realistic'); };
       const picked = store.get('bioglow-quality-picked'); // only set when someone clicks the button
       applyQ(picked || 'realistic');
       if (!picked) autoQuality = applyQ;

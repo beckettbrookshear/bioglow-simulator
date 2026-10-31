@@ -244,10 +244,12 @@
   }
 
   // ---- chat --------------------------------------------------------------------------------------
-  // The Chat tab asks for the chat code (typing the keypad code on the Sync keypad also opens it). Only fingerprints (hashes) of both codes are kept here. Messages are encrypted with a
-  // key made from the second code, like Sync, and the last 50 stay on the relay for people who join later.
+  // The Chat tab asks for the team password and the chat code (typing the keypad code on the Sync keypad
+  // also opens it). Only fingerprints (hashes) of the codes are kept here. Messages are encrypted with a
+  // key made from the team password and chat code, like Sync, and the last 50 stay on the relay for
+  // people who join later.
   const CHAT_OPEN = '54f8a2bf6302602207f077e774c4a8bb3381ab3e907f5dc7f8fdb720062ea30c';
-  const CHAT_PASS = '0cd1a20c3a139caa98773abb0b6a62cec11ab2f1d23433b7054125f3315654ef';
+  const CHAT_PASS = 'e161e25a2dab342d5458326ed4fa426a1c4679c1968a102baecceaab1cf05b43';
   const CHAT_KEEP = 50;
   const sha = async (s) => hex(await crypto.subtle.digest('SHA-256', te.encode(s)));
   const isChatCode = async (typed) => !!(window.crypto && crypto.subtle) && /[a-z]/.test(typed) && (await sha('bioglow-chat:' + typed)) === CHAT_OPEN;
@@ -296,8 +298,9 @@
     const box = document.createElement('div');
     box.className = 'chat-panel';
     box.innerHTML =
-      '<form class="chat-lock"><p class="sync-help">Talk with your team. Type the chat code to join.</p>' +
-      '<input class="chat-pass" type="password" inputmode="numeric" autocomplete="off" aria-label="Chat code">' +
+      '<form class="chat-lock"><p class="sync-help">Talk with your team. Type your team password and the chat code to join.</p>' +
+      '<label class="sync-team">Team password<input class="chat-team" type="password" autocomplete="off" spellcheck="false"></label>' +
+      '<label class="sync-team">Chat code<input class="chat-pass" type="password" autocomplete="off" autocapitalize="characters" spellcheck="false"></label>' +
       '<p class="sync-state chat-err"></p>' +
       '<div class="sync-actions"><button class="suggested">Join</button></div></form>' +
       '<div class="chat-room" hidden>' +
@@ -308,7 +311,8 @@
       '<div class="sync-actions"><button type="button" data-c="leave" class="flat">Leave chat</button></div></div>';
     host.replaceChildren(box); // replaces the "didn't load" note in index.html
     const q = (s) => box.querySelector(s);
-    const lock = q('.chat-lock'), passEl = q('.chat-pass'), errEl = q('.chat-err');
+    const lock = q('.chat-lock'), teamEl = q('.chat-team'), passEl = q('.chat-pass'), errEl = q('.chat-err');
+    teamEl.value = store.get('bioglow-team-pass') || ''; // the same team password as Sync
     const roomEl = q('.chat-room'), nameEl = q('.chat-name'), logEl = q('.chat-log'), textEl = q('.chat-text'), statusEl = q('.chat-status');
     let client = null, room = null;
     const msgs = new Map(); // id -> { id, name, text, at }
@@ -395,11 +399,12 @@
 
     lock.onsubmit = async (e) => {
       e.preventDefault();
-      const pass = passEl.value.trim();
+      const team = teamEl.value, pass = passEl.value.trim().toUpperCase();
       if (bannedUntil() > Date.now()) { errEl.textContent = blockedText(); return; }
-      if ((store.get('bioglow-team-pass') || '').length < MIN_PASS) { errEl.textContent = 'Type your team password in Sync first.'; return; }
+      if (team.length < MIN_PASS) { errEl.textContent = 'Type your team password (at least ' + MIN_PASS + ' characters).'; teamEl.focus(); return; }
       if (!window.mqtt) { errEl.textContent = 'Chat needs an internet connection.'; return; }
-      if ((await sha('bioglow-chat-pass:' + pass)) !== CHAT_PASS) { errEl.textContent = 'That code isn\'t right.'; passEl.select(); return; }
+      if ((await sha('bioglow-chat-pass:' + pass)) !== CHAT_PASS) { errEl.textContent = 'That chat code isn\'t right.'; passEl.select(); return; }
+      store.set('bioglow-team-pass', team);
       lock.hidden = true; roomEl.hidden = false;
       (nameEl.value ? textEl : nameEl).focus();
       enter(pass);
@@ -412,7 +417,12 @@
       send(text);
     };
     q('[data-c=leave]').onclick = () => { close(); passEl.focus(); };
-    return { show() { (lock.hidden ? textEl : passEl).focus(); } };
+    return {
+      show() {
+        if (!lock.hidden) teamEl.value = store.get('bioglow-team-pass') || teamEl.value; // Sync may have changed it
+        (lock.hidden ? textEl : teamEl.value ? passEl : teamEl).focus();
+      },
+    };
   }
 
   window.BioGlowSync = { attach };

@@ -304,7 +304,7 @@ i.sw.real { background: var(--real-c); }
 .sync-state.retry, .sync-state.connecting { color: var(--warning); }
 .sync-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 
-/* ---- Chat tab (shown once the chat code is typed on the Sync keypad) ---- */
+/* ---- Chat tab ---- */
 .pane-chat > * { max-width: 720px; }
 .chat-panel { background: var(--card-bg); border-radius: 12px; padding: 16px; box-shadow: 0 0 0 1px var(--card-shade), 0 1px 3px var(--card-shade); }
 .chat-panel input { font: inherit; color: inherit; background: var(--view-bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; box-sizing: border-box; width: 100%; }

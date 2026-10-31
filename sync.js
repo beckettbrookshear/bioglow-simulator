@@ -47,6 +47,7 @@
   }
 
   function attach({ blocks, print, store, button }) {
+    setUpChat(store);
     if (!blocks || !button) return;
     const ws = blocks.workspace;
     let client = null, room = null, status = 'off';
@@ -239,14 +240,12 @@
     window.addEventListener('pagehide', () => { if (client && room) client.publish(room.presence, room.bye); });
 
     render();
-    if (store.get('bioglow-chat-tab')) showChatTab(store);
     const saved = store.get('bioglow-sync-code');
     if (saved && /^\d{4,8}$/.test(saved)) join(saved); // (only once a team password is saved)
   }
 
   // ---- chat --------------------------------------------------------------------------------------
-  // Typing the chat code on the Sync keypad (its letters from a keyboard) opens a chat that asks for a
-  // second code. Only fingerprints (hashes) of both codes are kept here. Messages are encrypted with a
+  // The Chat tab asks for the chat code (typing the keypad code on the Sync keypad also opens it). Only fingerprints (hashes) of both codes are kept here. Messages are encrypted with a
   // key made from the second code, like Sync, and the last 50 stay on the relay for people who join later.
   const CHAT_OPEN = '54f8a2bf6302602207f077e774c4a8bb3381ab3e907f5dc7f8fdb720062ea30c';
   const CHAT_PASS = '0cd1a20c3a139caa98773abb0b6a62cec11ab2f1d23433b7054125f3315654ef';
@@ -281,31 +280,27 @@
   }
   const CHAT_STRIKES = 3, CHAT_BAN_MS = 24 * 3600 * 1000;
 
-  // The chat lives in its own Chat tab, which stays hidden on a computer until the chat code has been
-  // typed there once. Hide this tab puts it back into hiding.
+  // The chat lives in its own Chat tab.
   let chat = null;
   const chatTab = () => document.querySelector('#tabs [data-tab=chat]');
-  function showChatTab(store) {
+  function setUpChat(store) {
     const tab = chatTab(), host = document.getElementById('chatBox');
-    if (!tab || !host) return false;
-    if (!chat) { chat = makeChat(store, host); tab.addEventListener('click', () => tab.classList.remove('alert')); }
-    tab.hidden = false;
-    return true;
+    if (chat || !tab || !host) return;
+    chat = makeChat(store, host);
+    tab.addEventListener('click', () => { tab.classList.remove('alert'); chat.show(); });
   }
   function openChat(store) {
-    store.set('bioglow-chat-tab', '1');
-    if (!showChatTab(store)) return;
-    chatTab().click();
-    chat.show();
+    setUpChat(store);
+    if (chat) chatTab().click();
   }
   function makeChat(store, host) {
     const box = document.createElement('div');
     box.className = 'chat-panel';
     box.innerHTML =
-      '<form class="chat-lock"><p class="sync-help">Enter the chat code.</p>' +
+      '<form class="chat-lock"><p class="sync-help">Talk with your team. Type the chat code to join.</p>' +
       '<input class="chat-pass" type="password" inputmode="numeric" autocomplete="off" aria-label="Chat code">' +
       '<p class="sync-state chat-err"></p>' +
-      '<div class="sync-actions"><button type="button" data-c="hide" class="flat" title="Hide the Chat tab on this computer until the chat code is typed on the Sync keypad again">Hide this tab</button><button class="suggested">Enter</button></div></form>' +
+      '<div class="sync-actions"><button class="suggested">Join</button></div></form>' +
       '<div class="chat-room" hidden>' +
       '<input class="chat-name" maxlength="20" placeholder="Your name" aria-label="Your name">' +
       '<div class="chat-log" aria-live="polite"></div>' +
@@ -418,11 +413,6 @@
       send(text);
     };
     q('[data-c=leave]').onclick = () => { close(); passEl.focus(); };
-    q('[data-c=hide]').onclick = () => {
-      close(); store.set('bioglow-chat-tab', '');
-      chatTab().hidden = true;
-      if (chatTab().classList.contains('on')) document.querySelector('#tabs [data-tab=help]').click();
-    };
     return { show() { (lock.hidden ? textEl : passEl).focus(); } };
   }
 

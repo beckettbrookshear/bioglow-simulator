@@ -208,10 +208,14 @@
     stallTorque: 0.18 * 1e4, // N*m -> kg*cm^2/s^2 (SPIKE medium motor)
     freeSpeed: (1100 * Math.PI) / 180, // rad/s
     wheelInertia: 0.5, // kg*cm^2: wheel plus gearbox seen at the wheel
+    gearFriction: 0.04, // gearbox friction torque, as a share of stall torque (why a coasting robot stops)
+    rollingResistance: 0.015, // rubber tyre rolling on the mat: resisting force per unit of load
+    cgHeight: 0.35, // centre of mass height, as a share of the robot's height (load shifts as it speeds up, brakes and turns)
     motorKi: 20000, // integral gain of the motor speed controller
     bodyFriction: 0.3, // plastic on plastic/wood
     restitution: 0.05,
     matGrip: 0.4, // LEGO bricks sliding on the mat
+    staticGrip: 1.25, // a piece at rest takes this much more push to get moving than to keep sliding
   };
   // Real-world variation (toggle with sim.variation): how much a real robot differs from the ideal.
   const VARIATION = {
@@ -429,6 +433,9 @@
   const BASE_LEVEL = 1;
   const HOOK_WIDTH = 1.5; // cm either side of the basket's centre line that can hook a hanging piece (M04)
   const SCATTER_SPEED = 14; // cm/s: pushing the ant faster than this shakes leaf fragments loose (M06)
+  const SPRING_PRELOAD = 0.6; // a spring part pushes back with this share of its force at rest, rising to (2 - this) all the way in
+  const SPRING_RETURN = 25; // cm/s: how fast a spring part snaps back out once it is let go
+  const PULL_FORCE = 1.5; // N: what it takes to drag a pull handle (the robot feels it)
   // Missions with the No Equipment Constraint: their models score nothing while touching the robot.
   const NO_EQUIPMENT = new Set([1, 4, 5, 7, 9, 10, 12, 15]);
 
@@ -671,6 +678,20 @@
     return Math.hypot(px - cx, py - cy);
   }
 
+  // Mean distance from the centre of a footprint (centred on 0,0) to the points in it: how far out, on
+  // average, the friction under a piece acts when it is turned.
+  function meanRadius(poly) {
+    const xs = poly.map((p) => p[0]), ys = poly.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys), n = 12;
+    let sum = 0, count = 0;
+    for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+      const x = x0 + ((i + 0.5) / n) * (x1 - x0), y = y0 + ((j + 0.5) / n) * (y1 - y0);
+      if (pointInPoly(x, y, poly)) { sum += Math.hypot(x, y); count++; }
+    }
+    return count ? sum / count : 0.3 * Math.hypot(x1 - x0, y1 - y0);
+  }
+  const rectPts = (w, h) => [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
+
   function pointInPoly(x, y, poly) {
     let inside = false;
     for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
@@ -871,9 +892,13 @@
       ground.createFixture(planck.Box(t / 2, FIELD.h / 2, Vec2(FIELD.w + t / 2, FIELD.h / 2), 0), fix);
 
       // (collideConnected: the joint mustn't stop the body hitting the walls and models, which are part of the ground body)
-      const slideOnMat = (body, mass, r) => {
+      // Sliding friction on the mat, spread over the piece's footprint: turning it on the spot is resisted
+      // by friction at every point under it, so the torque is the force times the footprint's mean radius.
+      this.matFriction = [];
+      const slideOnMat = (body, mass, arm) => {
         const f = PHYS.matGrip * this.vary.grip * mass * G;
-        world.createJoint(planck.FrictionJoint({ maxForce: f, maxTorque: f * r * 0.6, collideConnected: true }, ground, body, body.getPosition()));
+        const joint = world.createJoint(planck.FrictionJoint({ maxForce: f, maxTorque: f * arm, collideConnected: true }, ground, body, body.getPosition()));
+        this.matFriction.push({ body, joint, f, tq: f * arm });
       };
 
       // mission models: bases are Dual-Locked to the mat; the parts the robot moves are pads
@@ -896,11 +921,11 @@
         this.state[s.id] = st;
         if (s.loose) {
           const [cx, cy] = centroid(s.shape);
-          const body = world.createBody({ type: 'dynamic', position: Vec2(cx, cy), angularDamping: 2, linearDamping: 0.5 });
+          const body = world.createBody({ type: 'dynamic', position: Vec2(cx, cy), angularDamping: 0.1, linearDamping: 0.05 });
           const area = Math.abs(s.shape.reduce((a, p, i) => { const q = s.shape[(i + 1) % s.shape.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
           body.createFixture(poly(s.shape.map(([x, y]) => [x - cx, y - cy])), { ...fix, density: s.loose.mass / area });
           for (const o of this.outlinesOf(s)) body.createFixture(poly(o.pts), { ...fix, density: 0, filterCategoryBits: o.cat }); // weightless: the base carries the mass
-          slideOnMat(body, s.loose.mass, 2);
+          slideOnMat(body, s.loose.mass, meanRadius(s.shape.map(([x, y]) => [x - cx, y - cy])));
           s.body = body;
           s.rest = { x: cx, y: cy };
           continue;
@@ -942,11 +967,11 @@
           const k = slots[i.on] = (slots[i.on] || 0) + 1;
           [x, y, z] = this.itemSlot(host, i, i.on === 'nest' ? nestOrder.indexOf(i.id) : k - 1);
         }
-        const b = world.createBody({ type: 'dynamic', position: Vec2(x, y), linearDamping: 0.5, angularDamping: 2 });
+        const b = world.createBody({ type: 'dynamic', position: Vec2(x, y), linearDamping: 0.05, angularDamping: 0.1 });
         const shape = i.size ? planck.Box(i.size[0] / 2, i.size[1] / 2) : planck.Circle(i.r);
         const area = i.size ? i.size[0] * i.size[1] : Math.PI * i.r * i.r;
         b.createFixture(shape, { ...fix, density: i.mass / area, filterMaskBits: 0xffff & ~OVERHANG_CATEGORY & ~HIGH_CATEGORY & ~ROBOT_HIGH_CATEGORY & ~(i.type === 'tie' ? RING_CATEGORY : 0) });
-        slideOnMat(b, i.mass, i.r);
+        slideOnMat(b, i.mass, i.size ? meanRadius(rectPts(i.size[0], i.size[1])) : (2 / 3) * i.r);
         if (i.on) b.setActive(false);
         if (i.tether) { // a cable or chain back to its model: it can't be dragged further away than this
           const [hx, hy] = centroid(this.solids.find((s2) => s2.id === i.tether).shape);
@@ -1117,7 +1142,7 @@
       const spring = pd.kind === 'spring';
       const joint = this.world.createJoint(planck.PrismaticJoint({
         enableLimit: true, lowerTranslation: 0, upperTranslation: pd.travel,
-        enableMotor: true, motorSpeed: spring ? -6 : 0, maxMotorForce: pd.force * NEWTON,
+        enableMotor: true, motorSpeed: spring ? -SPRING_RETURN : 0, maxMotorForce: pd.force * NEWTON,
       }, this.ground, body, Vec2(cx, cy), Vec2(-spot.nx, -spot.ny)));
       const ps = { max: 0, strokes: 0, latched: false };
       st.pads[pd.key] = ps;
@@ -1387,6 +1412,7 @@
         this.updateAuxMotors(h);
         this.updateAttachment();
         this.updateRig();
+        this.updateMatFriction();
         this.world.step(h, 10, 4);
         this.syncFromWorld();
         this.updateMissions();
@@ -1405,6 +1431,16 @@
         if (completed) return true;
       }
       return false;
+    }
+
+    // A piece at rest on the mat grips it harder (static friction) than one already sliding.
+    updateMatFriction() {
+      for (const m of this.matFriction) {
+        const v = m.body.getLinearVelocity(), still = Math.hypot(v.x, v.y) < 0.3 && Math.abs(m.body.getAngularVelocity()) < 0.05;
+        const k = still ? PHYS.staticGrip : 1;
+        m.joint.setMaxForce(m.f * k);
+        m.joint.setMaxTorque(m.tq * k);
+      }
     }
 
     // Motors -> wheels -> tyre grip -> robot body. Each wheel is a speed-controlled motor with a
@@ -1431,7 +1467,19 @@
         const rn = rx * d.y - ry * d.x;
         return 1 / m + (rn * rn) / I;
       };
-      const wheelN = (PHYS.robotMass * G * PHYS.driveLoad) / 2;
+      // Load on each wheel. At rest the drive wheels carry driveLoad of the weight and the caster
+      // behind them the rest. Speeding up tips weight back onto the caster and braking tips it onto
+      // the wheels; turning puts more on the outside wheel. (Acceleration is smoothed over a few
+      // substeps: the robot's frame and tyres flex a little, so the load doesn't jump.)
+      const vNow = body.getLinearVelocity();
+      const pv = r.prevVel || { x: vNow.x, y: vNow.y }, ra = r.accel || { x: 0, y: 0 };
+      ra.x += ((vNow.x - pv.x) / h - ra.x) * 0.15; ra.y += ((vNow.y - pv.y) / h - ra.y) * 0.15;
+      r.prevVel = { x: vNow.x, y: vNow.y }; r.accel = ra;
+      const aLong = ra.x * fwd.x + ra.y * fwd.y, aLat = ra.x * lat.x + ra.y * lat.y;
+      const weight = PHYS.robotMass * G, hcg = PHYS.cgHeight * ROBOT.height, casterArm = Math.max(4, ROBOT.length / 2 - 2);
+      const onWheels = clamp(weight * PHYS.driveLoad - (PHYS.robotMass * aLong * hcg) / casterArm, weight * 0.3, weight);
+      const shift = clamp((PHYS.robotMass * aLat * hcg) / ROBOT.wheelBase, -onWheels / 2, onWheels / 2);
+      const load = { L: onWheels / 2 + shift, R: onWheels / 2 - shift };
       const J = PHYS.wheelInertia;
       let slipping = false;
 
@@ -1461,6 +1509,9 @@
           tau = clamp((J * (set - w)) / h + r[ik], -avail, avail);
         }
         w += (tau / J) * h;
+        // gearbox friction and tyre rolling resistance always oppose the wheel's turning (and can stop it)
+        const drag = (PHYS.gearFriction * PHYS.stallTorque + PHYS.rollingResistance * load[side] * radius) / J * h;
+        w = Math.abs(w) <= drag ? 0 : w - Math.sign(w) * drag;
 
         // tyre: impulse that would make the tyre roll without slipping, capped by grip
         const vel = body.getLinearVelocityFromWorldPoint(p);
@@ -1468,7 +1519,7 @@
         let pLong = (w * radius - vLong) / (invMass(p, fwd) + (radius * radius) / J);
         let pLat = -vLat / invMass(p, lat);
         const grip = v.grip * fault.grip / 100;
-        const maxP = PHYS.tyreGrip * grip * wheelN * h;
+        const wheelN = load[side], maxP = PHYS.tyreGrip * grip * wheelN * h;
         const mag = Math.hypot(pLong, pLat);
         if (mag > maxP) {
           const k = (PHYS.slideGrip * grip * wheelN * h) / mag;
@@ -1491,7 +1542,7 @@
       const sp = Math.hypot(vc.x, vc.y);
       if (sp > 1e-6) {
         const d = Vec2(vc.x / sp, vc.y / sp);
-        const pMax = PHYS.casterGrip * PHYS.robotMass * G * (1 - PHYS.driveLoad) * h;
+        const pMax = PHYS.casterGrip * (weight - onWheels) * h;
         const pc2 = Math.min(sp / invMass(pc, d), pMax);
         body.applyLinearImpulse(Vec2(-d.x * pc2, -d.y * pc2), pc, true);
       }
@@ -1504,6 +1555,9 @@
         if (pl.lift) { this.updateHandle(pl, tag); continue; }
         if (pl.pull) { this.updatePull(pl, tag); continue; }
         const ps = pl.ps, f = clamp(pl.t / pl.travel, 0, 1);
+        // A spring pushes back harder the further it is squeezed (preloaded, so it already pushes at
+        // the start); a latch is held by friction, which takes a firmer push to get moving than to keep moving.
+        pl.joint.setMaxMotorForce(pl.pad.force * NEWTON * (pl.spring ? SPRING_PRELOAD + (2 - 2 * SPRING_PRELOAD) * f : pl.speed > 0.2 ? 1 : PHYS.staticGrip));
         if (pl.spring) {
           if (!ps.latched && f >= 0.85) {
             ps.latched = true;
@@ -1651,7 +1705,12 @@
       // the hook drags the bar: its back stays just in front of the furthest hooked point
       if (reach > -Infinity) {
         const s2 = clamp(reach + pd.r - pd.out + 0.05, 0, pl.travel);
-        if (s2 > pl.s) { pl.s = s2; this.placePull(pl); ps.max = pl.s / pl.travel; }
+        if (s2 > pl.s) {
+          pl.s = s2; this.placePull(pl); ps.max = pl.s / pl.travel;
+          // the bar drags back on the hook, towards the model (the force acts on the next physics step)
+          const f = (pd.force || PULL_FORCE) * NEWTON;
+          this.body.applyForce(Vec2(-pl.nx * f, -pl.ny * f), Vec2(pl.cx, pl.cy), true);
+        }
       }
       if (before < DONE && ps.max >= DONE) { this.log(pd.label + tag(pl.solid)); this.onLatched(pl); }
       else if (before === 0 && ps.max > 0) this.log('Pulling the ' + pd.handle + tag(pl.solid));
